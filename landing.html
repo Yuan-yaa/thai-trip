@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#059669">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="泰国行">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<title>泰国行</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .card {
+    background: white; border-radius: 20px; padding: 40px 32px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-width: 380px; width: 90%;
+  }
+  .icon { font-size: 64px; margin-bottom: 16px; }
+  h1 { font-size: 28px; color: #059669; margin-bottom: 8px; font-weight: 700; }
+  .sub { color: #64748b; font-size: 14px; margin-bottom: 28px; }
+  .steps { text-align: left; background: #f0fdf4; border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+  .steps h3 { font-size: 15px; color: #166534; margin-bottom: 12px; }
+  .step { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 13px; color: #334155; }
+  .step:last-child { margin-bottom: 0; }
+  .step-num { background: #059669; color: white; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .step-text { line-height: 1.5; }
+  .step-text strong { color: #059669; }
+  .btn {
+    display: block; width: 100%; padding: 14px; background: #059669; color: white;
+    border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer;
+    font-family: inherit; text-decoration: none; transition: all 0.2s;
+    margin-bottom: 12px;
+  }
+  .btn:hover { background: #047857; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(5,150,105,0.3); }
+  .btn-outline {
+    display: block; width: 100%; padding: 14px; background: white; color: #059669;
+    border: 2px solid #059669; border-radius: 12px; font-size: 16px; font-weight: 600;
+    cursor: pointer; font-family: inherit; text-decoration: none; transition: all 0.2s;
+  }
+  .btn-outline:hover { background: #f0fdf4; }
+  .tip { font-size: 12px; color: #94a3b8; margin-top: 16px; }
+  a { color: inherit; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">🇹🇭</div>
+  <h1>泰国行</h1>
+  <p class="sub">记录吃住行 · 多人分摊 · 独立 App</p>
+  <div class="steps">
+    <h3>📲 添加到 iPhone 桌面</h3>
+    <div class="step"><span class="step-num">1</span><span class="step-text">点击下方按钮<strong>打开工作台</strong></span></div>
+    <div class="step"><span class="step-num">2</span><span class="step-text">点击 Safari 底部 <strong>分享按钮 ↑</strong></span></div>
+    <div class="step"><span class="step-num">3</span><span class="step-text">选择<strong>「添加到主屏幕」</strong></span></div>
+    <div class="step"><span class="step-num">4</span><span class="step-text">点击右上角<strong>「添加」</strong>完成</span></div>
+  </div>
+  <a href="./thai-trip-workbench.html" class="btn">🇹🇭 打开泰国行工作台</a>
+  <a href="./thai-trip-workbench.html" class="btn-outline">📋 查看完整功能</a>
+  <p class="tip">添加到桌面后将以独立 App 形式运行</p>
+</div>
+</body>
+</html>

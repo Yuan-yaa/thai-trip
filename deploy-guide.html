@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>部署指南 - 泰国行</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;background:#f8fafc;color:#1e293b;padding:20px;}
+  .container{max-width:500px;margin:0 auto;}
+  .card{background:white;border-radius:16px;padding:24px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  h1{font-size:24px;color:#059669;margin-bottom:4px;}
+  h2{font-size:17px;color:#166534;margin-bottom:12px;}
+  .sub{color:#64748b;font-size:14px;margin-bottom:20px;}
+  .method{margin-bottom:24px;}
+  .method h3{font-size:15px;color:#0f172a;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+  .method h3 span{font-size:20px;}
+  .method p{font-size:13px;color:#475569;line-height:1.6;margin-bottom:6px;}
+  .method code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;color:#059669;}
+  .divider{border-top:1px solid #e2e8f0;margin:20px 0;}
+  .tag{display:inline-block;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;}
+  .url-box{background:#f1f5f9;border-radius:8px;padding:10px 12px;font-size:12px;color:#475569;word-break:break-all;margin:8px 0;}
+  .btn{display:block;width:100%;padding:14px;background:#059669;color:white;border:none;border-radius:12px;font-size:15px;font-weight:600;text-align:center;text-decoration:none;margin-top:8px;}
+  ol{padding-left:20px;font-size:13px;color:#475569;line-height:1.8;}
+  ol li{margin-bottom:4px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🇹🇭 泰国行</h1>
+  <p class="sub">PWA 独立 App · 部署到 iPhone 桌面</p>
+
+  <div class="card">
+    <h2>🚀 推荐：GitHub Pages 一键部署</h2>
+    <ol>
+      <li>把 <code>/workspace/</code> 下所有 8 个文件上传到 GitHub 仓库</li>
+      <li>进入仓库 Settings → Pages → Source 选 main 分支 → Save</li>
+      <li>等待 1-2 分钟，获得地址如：<br><code>https://你的用户名.github.io/仓库名/</code></li>
+    </ol>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">GitHub Pages 自动提供 HTTPS，完美支持 PWA</p>
+  </div>
+
+  <div class="card">
+    <h2>⚡ 最快：Vercel 拖拽部署</h2>
+    <ol>
+      <li>打开 <a href="https://vercel.com/new" style="color:#059669;">vercel.com/new</a></li>
+      <li>把 <code>/workspace/</code> 整个文件夹拖进去</li>
+      <li>自动部署完成，获得 <code>https://xxx.vercel.app</code> 地址</li>
+    </ol>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">免费、自动 HTTPS、无需注册 GitHub 也能用</p>
+  </div>
+
+  <div class="card">
+    <h2>📲 部署后在 iPhone 上操作</h2>
+    <ol>
+      <li>用 <strong>Safari</strong> 打开部署后的网址</li>
+      <li>点击底部 <strong>分享按钮 ↑</strong></li>
+      <li>选择 <strong>「添加到主屏幕」</strong></li>
+      <li>确认名称「泰国行」→ 点击 <strong>「添加」</strong></li>
+    </ol>
+    <p style="font-size:12px;color:#94a3b8;margin-top:8px;">⚠️ 必须用 Safari，Chrome/微信内嵌浏览器不支持添加到桌面</p>
+  </div>
+
+  <div class="card">
+    <h2>📦 需要上传的文件</h2>
+    <div class="url-box">
+      thai-trip-workbench.html<br>
+      index.html<br>
+      manifest.json<br>
+      sw.js<br>
+      icon-192x192.png<br>
+      icon-512x512.png<br>
+      apple-touch-icon.png<br>
+      favicon.png
+    </div>
+    <p style="font-size:12px;color:#94a3b8;">共 8 个文件，全部放在同一目录下</p>
+  </div>
+</div>
+</body>
+</html>
