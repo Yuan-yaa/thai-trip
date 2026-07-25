@@ -29,7 +29,7 @@
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.03);
     --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.03);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.05);
-    --bottom-bar-h: 72px; --top-bar-h: 72px;
+    --bottom-bar-h: 72px; --top-bar-h: 72px; --top-sub-bar-h: 44px;
     --notch-top: env(safe-area-inset-top, 0px);
     --notch-bottom: env(safe-area-inset-bottom, 0px);
     --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -42,7 +42,7 @@
     background: var(--s50);
     color: var(--s800);
     min-height: 100vh;
-    padding-top: calc(var(--top-bar-h) + var(--notch-top));
+    padding-top: calc(var(--top-bar-h) + var(--top-sub-bar-h) + var(--notch-top));
     padding-bottom: calc(var(--bottom-bar-h) + var(--notch-bottom) + 24px);
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
@@ -67,6 +67,21 @@
   .top-brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
   .top-logo { width: 38px; height: 38px; background: linear-gradient(135deg, var(--e600), var(--t500)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: white; }
   .top-title { font-size: 18px; font-weight: 700; color: var(--s900); letter-spacing: -0.3px; }
+
+  /* 顶部副标题栏 */
+  .top-sub-bar {
+    position: fixed; top: calc(var(--top-bar-h) + var(--notch-top)); left: 0; right: 0;
+    height: var(--top-sub-bar-h);
+    background: var(--white);
+    border-bottom: 1px solid var(--s100);
+    z-index: 99; display: flex; align-items: center;
+    padding: 0 20px;
+  }
+  .top-sub-bar-inner {
+    width: 100%; max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--s500);
+  }
   .top-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .top-meta-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--s500); white-space: nowrap; }
   .top-meta-item strong { color: var(--s700); font-weight: 600; }
@@ -323,15 +338,18 @@
 <header class="top-bar">
   <div class="top-bar-inner">
     <div class="top-brand"><div class="top-logo">🇹🇭</div><div class="top-title">泰国旅行</div></div>
-    <div class="top-meta">
-      <div class="top-meta-item">📅 <strong id="topDates">8.4 – 8.9</strong></div>
-      <div class="top-meta-divider"></div>
-      <div class="top-meta-item">👥 <strong id="topPeople">3人</strong></div>
-      <div class="top-meta-divider"></div>
-      <div class="rate-badge" onclick="switchTab('settings')">💱 1 RMB = <span id="topRate">5</span> THB</div>
-    </div>
   </div>
 </header>
+
+<div class="top-sub-bar">
+  <div class="top-sub-bar-inner">
+    <div class="top-meta-item">📅 <strong id="topDates">8.4 – 8.9</strong></div>
+    <div class="top-meta-divider"></div>
+    <div class="top-meta-item">👥 <strong id="topPeople">3人</strong></div>
+    <div class="top-meta-divider"></div>
+    <div class="rate-badge" onclick="switchTab('settings')">💱 1 RMB = <span id="topRate">5</span> THB</div>
+  </div>
+</div>
 
 <main>
   <!-- 总览 -->
