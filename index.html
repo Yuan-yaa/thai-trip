@@ -150,6 +150,14 @@
   .custom-payer-wrap { display: flex; gap: 6px; align-items: center; }
   .custom-payer-wrap select { flex: 1; }
   .custom-payer-wrap input { flex: 1.2; }
+  .participant-checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+  .participant-checkbox { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border: 1px solid var(--s200); border-radius: 20px; cursor: pointer; font-size: 13px; color: var(--s600); transition: all var(--transition); user-select: none; background: var(--white); }
+  .participant-checkbox:hover { border-color: var(--e500); }
+  .participant-checkbox.checked { background: var(--e600); color: white; border-color: var(--e600); }
+  .participant-checkbox .checkbox-icon { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--s300); display: flex; align-items: center; justify-content: center; font-size: 9px; color: transparent; transition: all var(--transition); }
+  .participant-checkbox.checked .checkbox-icon { background: white; border-color: white; color: var(--e600); }
+  .participant-checkbox .remove-participant { margin-left: 4px; color: var(--s400); font-weight: bold; font-size: 14px; line-height: 1; }
+  .participant-checkbox .remove-participant:hover { color: var(--red-500); }
 
   /* 按钮 */
   .btn { border: none; padding: 9px 18px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all var(--transition); font-family: inherit; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.1px; -webkit-tap-highlight-color: transparent; }
@@ -490,14 +498,22 @@
     </div>
     <div class="form-row">
       <div class="form-group"><label>花费类型 *</label><select id="recordSplit" onchange="onSplitChange()"><option value="shared">🤝 公共花费</option><option value="personal">👤 个人花费</option></select><div class="form-hint">公共花费按参与人数均摊</div></div>
-      <div class="form-group"><label>付款人 *</label><div class="custom-payer-wrap"><select id="recordPayer" onchange="onPayerSelectChange()"><option value="0">成员A</option></select><input type="text" id="recordPayerCustom" placeholder="输入名字" style="display:none;"></div><div class="form-hint">可选成员或输入自定义名字（比如当地朋友请客）</div></div>
+      <div class="form-group"><label>付款人 *</label><div class="custom-payer-wrap"><select id="recordPayer" onchange="onPayerSelectChange()"><option value="m0">成员A</option></select><input type="text" id="recordPayerCustom" placeholder="输入名字" style="display:none;"></div><div class="form-hint">可选成员或输入自定义名字（比如当地朋友请客）</div></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label>项目名称 *</label><input type="text" id="recordName" placeholder="冬阴功汤、酒店住宿…" required></div>
       <div class="form-group"><label>金额 (泰铢) *</label><input type="number" id="recordAmount" step="0.01" min="0" placeholder="0" required></div>
     </div>
-    <div class="form-row" id="splitCountRow">
-      <div class="form-group"><label>参与人数 *</label><input type="number" id="recordSplitCount" value="3" min="1" max="20" step="1"><div class="form-hint">默认 3 人。多人聚餐时可改</div></div>
+    <div class="form-row" id="participantsRow">
+      <div class="form-group" style="flex:2;">
+        <label>参与人员 *</label>
+        <div id="participantCheckboxes" class="participant-checkbox-group"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input type="text" id="customParticipantInput" placeholder="添加自定义参与人（如阿泰）" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--s200);border-radius:8px;">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addCustomParticipant()" style="padding:8px 14px;font-size:13px;">＋ 添加</button>
+        </div>
+        <div class="form-hint">勾选参与本次消费的人员（含付款人自己）</div>
+      </div>
       <div class="form-group"><label>人均 / ≈RMB</label><input type="text" id="recordPerPerson" readonly style="background:var(--s50); color:var(--s500);"></div>
     </div>
     <div class="form-row"><div class="form-group"><label>地点</label><input type="text" id="recordLocation" placeholder="曼谷、普吉岛…"></div></div>
@@ -527,7 +543,7 @@
 const TRIP_START='2025-08-04',TRIP_END='2025-08-09',TRIP_DAYS=6,DEFAULT_MEMBER_COUNT=3;
 function getTripDates(){const d=[];const s=new Date(TRIP_START);for(let i=0;i<TRIP_DAYS;i++){const dt=new Date(s);dt.setDate(dt.getDate()+i);d.push(dt.toISOString().slice(0,10));}return d;}
 
-const STORAGE_KEY='thai_trip_data_v6';
+const STORAGE_KEY='thai_trip_data_v7';
 const MEMBER_COLORS=['#059669','#2563eb','#d97706','#9333ea','#dc2626','#0891b2'];
 
 // 注意事项：去掉行前准备类，保留旅行中&旅行后相关
@@ -558,7 +574,20 @@ const DEFAULT_REMINDERS=[
 
 let data={records:[],plans:[],members:['成员A','成员B','成员C'],rate:5,reminders:[...DEFAULT_REMINDERS],tips:[...DEFAULT_TIPS]};
 
-function loadData(){const s=localStorage.getItem(STORAGE_KEY);if(s){try{const p=JSON.parse(s);data={records:p.records||[],plans:p.plans||[],members:(p.members&&p.members.length>=DEFAULT_MEMBER_COUNT)?p.members:['成员A','成员B','成员C'],rate:p.rate||5,reminders:p.reminders||[...DEFAULT_REMINDERS],tips:p.tips||[...DEFAULT_TIPS]};}catch(e){}}}
+function migrateRecord(r){
+  if(r.payer && typeof r.payer==='string' && (r.payer.startsWith('m')||r.payer.startsWith('c:'))) return r;
+  if(r.payerCustom){r.payer='c:'+r.payerCustom;}
+  else if(r.payerIdx!==undefined && r.payerIdx>=0){r.payer='m'+r.payerIdx;}
+  else{r.payer='m0';}
+  if(!r.participants || !Array.isArray(r.participants) || r.participants.length===0){
+    const sc=r.splitCount||data.members.length;
+    r.participants=[];
+    for(let i=0;i<Math.min(sc,data.members.length);i++){r.participants.push('m'+i);}
+  }
+  delete r.payerIdx; delete r.payerCustom; delete r.splitCount;
+  return r;
+}
+function loadData(){const s=localStorage.getItem(STORAGE_KEY);if(s){try{const p=JSON.parse(s);data={records:(p.records||[]).map(migrateRecord),plans:p.plans||[],members:(p.members&&p.members.length>=DEFAULT_MEMBER_COUNT)?p.members:['成员A','成员B','成员C'],rate:p.rate||5,reminders:p.reminders||[...DEFAULT_REMINDERS],tips:p.tips||[...DEFAULT_TIPS]};}catch(e){}}}
 function saveData(){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}
 
 const CATEGORIES={food:{name:'餐饮',icon:'🍔',class:'tag-food'},stay:{name:'住宿',icon:'🏨',class:'tag-stay'},transport:{name:'交通',icon:'🚗',class:'tag-transport'},ticket:{name:'门票',icon:'🎫',class:'tag-ticket'},shopping:{name:'购物',icon:'🛍',class:'tag-shopping'},other:{name:'其他',icon:'📦',class:'tag-other'}};
@@ -572,8 +601,11 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 function genId(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5);}
 function getMemberColor(i){return MEMBER_COLORS[i%MEMBER_COLORS.length];}
 function getMemberInitial(n){return n?n.charAt(0).toUpperCase():'?';}
-function getPerPersonAmount(record){if(record.splitType==='personal')return record.amount;return record.amount/(record.splitCount||data.members.length);}
-function getPayerDisplayName(record){if(record.payerCustom)return record.payerCustom;if(record.payerIdx!==undefined&&record.payerIdx<data.members.length)return data.members[record.payerIdx];return'未知';}
+function getPerPersonAmount(record){if(record.splitType==='personal')return record.amount;const pc=(record.participants||[]).length;return pc>0?record.amount/pc:record.amount/data.members.length;}
+function personLabel(id){if(!id)return'未知';if(id.startsWith('m')){const idx=parseInt(id.slice(1));return(idx>=0&&idx<data.members.length)?data.members[idx]:'未知';}if(id.startsWith('c:'))return id.slice(2);return'未知';}
+function personColor(id){if(id&&id.startsWith('m'))return getMemberColor(parseInt(id.slice(1)));return'#64748b';}
+function personInitial(id){return getMemberInitial(personLabel(id));}
+function getPayerDisplayName(record){return personLabel(record.payer);}
 
 function switchTab(name){const item=document.querySelector(`.bottom-nav-item[data-tab="${name}"]`);if(item)item.click();}
 document.querySelectorAll('.bottom-nav-item').forEach(item=>{item.addEventListener('click',()=>{
@@ -593,49 +625,65 @@ function saveRate(){updateRate(document.getElementById('rateInput').value);}
 function renderMembersList(){document.getElementById('membersList').innerHTML=data.members.map((n,i)=>`<div class="member-row"><div class="member-avatar" style="background:${getMemberColor(i)};">${getMemberInitial(n)}</div><input type="text" value="${n}" data-idx="${i}" onchange="updateMemberName(${i},this.value)"><span style="font-size:11px;color:var(--s400);">${i<DEFAULT_MEMBER_COUNT?'核心':'额外'}</span></div>`).join('');}
 function updateMemberName(idx,name){data.members[idx]=name.trim()||`成员${String.fromCharCode(65+idx)}`;saveData();refreshPayerSelects();}
 function saveMembers(){saveData();refreshPayerSelects();document.getElementById('topPeople').textContent=data.members.length+'人';renderOverview();renderRecords();renderSettlement();showToast('已保存');}
-function refreshPayerSelects(){const ps=document.getElementById('recordPayer'),fp=document.getElementById('filterPayer');const cv=ps.value,fv=fp.value;ps.innerHTML=data.members.map((m,i)=>`<option value="${i}">${m}</option>`).join('')+'<option value="custom">✏️ 自定义…</option>';fp.innerHTML='<option value="">所有付款人</option>'+data.members.map((m,i)=>`<option value="${i}">${m}</option>`).join('');if(cv)ps.value=cv;if(fv)fp.value=fv;onPayerSelectChange();}
+function refreshPayerSelects(){const ps=document.getElementById('recordPayer'),fp=document.getElementById('filterPayer');const cv=ps.value,fv=fp.value;ps.innerHTML=data.members.map((m,i)=>`<option value="m${i}">${m}</option>`).join('')+'<option value="custom">✏️ 自定义…</option>';fp.innerHTML='<option value="">所有付款人</option>'+data.members.map((m,i)=>`<option value="m${i}">${m}</option>`).join('');if(cv)ps.value=cv;if(fv)fp.value=fv;onPayerSelectChange();}
 function onPayerSelectChange(){document.getElementById('recordPayerCustom').style.display=document.getElementById('recordPayer').value==='custom'?'':'none';}
 
 function renderDateQuick(cid,iid){document.getElementById(cid).innerHTML=getTripDates().map(d=>`<button type="button" class="date-quick-btn" onclick="document.getElementById('${iid}').value='${d}';highlightDateBtn(this,'${cid}')">${formatDateShort(d)}</button>`).join('');}
 function highlightDateBtn(btn,cid){document.querySelectorAll(`#${cid} .date-quick-btn`).forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
 
+let editingParticipants=[];let editingCustomParticipants=[];
+function renderParticipantCheckboxes(){
+  const container=document.getElementById('participantCheckboxes');
+  let html=data.members.map((m,i)=>{const pid='m'+i;const checked=editingParticipants.includes(pid);return`<label class="participant-checkbox${checked?' checked':''}" data-pid="${pid}" onclick="toggleParticipant('${pid}')"><span class="checkbox-icon">✓</span><span>${m}</span></label>`;}).join('');
+  editingCustomParticipants.forEach(name=>{const pid='c:'+name;const checked=editingParticipants.includes(pid);html+=`<label class="participant-checkbox${checked?' checked':''}" data-pid="${pid}" onclick="toggleParticipant('${pid}')"><span class="checkbox-icon">✓</span><span>${name}</span><span class="remove-participant" onclick="event.stopPropagation();removeCustomParticipant('${name}')" title="移除">×</span></label>`;});
+  container.innerHTML=html;
+}
+function toggleParticipant(pid){const i=editingParticipants.indexOf(pid);if(i>=0){editingParticipants.splice(i,1);}else{editingParticipants.push(pid);}renderParticipantCheckboxes();updatePerPerson();}
+function addCustomParticipant(){const input=document.getElementById('customParticipantInput');const name=input.value.trim();if(!name){showToast('请输入名字');return;}if(editingCustomParticipants.includes(name)){showToast('已添加过');return;}editingCustomParticipants.push(name);editingParticipants.push('c:'+name);input.value='';renderParticipantCheckboxes();updatePerPerson();}
+function removeCustomParticipant(name){editingCustomParticipants=editingCustomParticipants.filter(n=>n!==name);editingParticipants=editingParticipants.filter(pid=>pid!=='c:'+name);renderParticipantCheckboxes();updatePerPerson();}
+function getSelectedParticipants(){return [...editingParticipants];}
+
 function openRecordModal(id=null){
   document.getElementById('recordModalTitle').textContent=id?'编辑消费':'添加消费';
   document.getElementById('recordId').value=id||'';renderDateQuick('dateQuick','recordDate');refreshPayerSelects();
+  editingCustomParticipants=[];
   if(id){const r=data.records.find(x=>x.id===id);if(r){
     document.getElementById('recordDate').value=r.date;document.getElementById('recordCategory').value=r.category;
     document.getElementById('recordSplit').value=r.splitType||'shared';
-    if(r.payerCustom){document.getElementById('recordPayer').value='custom';document.getElementById('recordPayerCustom').style.display='';document.getElementById('recordPayerCustom').value=r.payerCustom;}
-    else{document.getElementById('recordPayer').value=r.payerIdx!==undefined?r.payerIdx:0;document.getElementById('recordPayerCustom').style.display='none';}
+    if(r.payer&&r.payer.startsWith('c:')){document.getElementById('recordPayer').value='custom';document.getElementById('recordPayerCustom').style.display='';document.getElementById('recordPayerCustom').value=r.payer.slice(2);}
+    else{document.getElementById('recordPayer').value=r.payer||'m0';document.getElementById('recordPayerCustom').style.display='none';}
     document.getElementById('recordName').value=r.name;document.getElementById('recordAmount').value=r.amount;
-    document.getElementById('recordSplitCount').value=r.splitCount||data.members.length;
+    editingParticipants=[...(r.participants||[])];
+    (r.participants||[]).forEach(pid=>{if(pid.startsWith('c:')){const name=pid.slice(2);if(!editingCustomParticipants.includes(name))editingCustomParticipants.push(name);}});
     document.getElementById('recordLocation').value=r.location||'';document.getElementById('recordNote').value=r.note||'';
   }}else{
     document.getElementById('recordDate').value=TRIP_START;document.getElementById('recordCategory').value='food';
-    document.getElementById('recordSplit').value='shared';document.getElementById('recordPayer').value=0;
+    document.getElementById('recordSplit').value='shared';document.getElementById('recordPayer').value='m0';
     document.getElementById('recordPayerCustom').style.display='none';document.getElementById('recordPayerCustom').value='';
     document.getElementById('recordName').value='';document.getElementById('recordAmount').value='';
-    document.getElementById('recordSplitCount').value=data.members.length;
+    editingParticipants=data.members.map((_,i)=>'m'+i);
     document.getElementById('recordLocation').value='';document.getElementById('recordNote').value='';
   }
-  onSplitChange();updatePerPerson();document.getElementById('recordModal').classList.add('active');
+  renderParticipantCheckboxes();onSplitChange();updatePerPerson();document.getElementById('recordModal').classList.add('active');
 }
-function onSplitChange(){document.getElementById('splitCountRow').style.display=document.getElementById('recordSplit').value==='shared'?'':'none';updatePerPerson();}
-function updatePerPerson(){const a=parseFloat(document.getElementById('recordAmount').value)||0;const s=document.getElementById('recordSplit').value;const c=parseInt(document.getElementById('recordSplitCount').value)||data.members.length;const pp=s==='personal'?a:a/c;document.getElementById('recordPerPerson').value=formatMoney(pp,'THB')+' / '+formatMoney(thbToRmb(pp),'RMB');}
+function onSplitChange(){document.getElementById('participantsRow').style.display=document.getElementById('recordSplit').value==='shared'?'':'none';updatePerPerson();}
+function updatePerPerson(){const a=parseFloat(document.getElementById('recordAmount').value)||0;const s=document.getElementById('recordSplit').value;const c=getSelectedParticipants().length||data.members.length;const pp=s==='personal'?a:(c>0?a/c:0);document.getElementById('recordPerPerson').value=formatMoney(pp,'THB')+' / '+formatMoney(thbToRmb(pp),'RMB');}
 document.getElementById('recordAmount').addEventListener('input',updatePerPerson);
-document.getElementById('recordSplitCount').addEventListener('input',updatePerPerson);
 function saveRecord(){
   const date=document.getElementById('recordDate').value,cat=document.getElementById('recordCategory').value;
   const splitType=document.getElementById('recordSplit').value,name=document.getElementById('recordName').value.trim();
   const amount=parseFloat(document.getElementById('recordAmount').value);
   if(!date||!name||!amount||amount<=0){showToast('请填写完整信息');return;}
-  const pv=document.getElementById('recordPayer').value;let pi,pc=null;
-  if(pv==='custom'){pi=-1;pc=document.getElementById('recordPayerCustom').value.trim();if(!pc){showToast('请输入付款人名字');return;}}
-  else{pi=parseInt(pv);if(isNaN(pi)){showToast('请选择付款人');return;}}
+  const pv=document.getElementById('recordPayer').value;let payer;
+  if(pv==='custom'){const cn=document.getElementById('recordPayerCustom').value.trim();if(!cn){showToast('请输入付款人名字');return;}payer='c:'+cn;}
+  else{payer=pv;}
+  let participants;
+  if(splitType==='shared'){participants=getSelectedParticipants();if(participants.length===0){showToast('请选择参与人员');return;}}
+  else{participants=[payer];}
   const id=document.getElementById('recordId').value;
-  const rec={id:id||genId(),date,category:cat,splitType,payerIdx:pi,payerCustom:pc,name,amount,splitCount:splitType==='shared'?(parseInt(document.getElementById('recordSplitCount').value)||data.members.length):1,location:document.getElementById('recordLocation').value.trim(),note:document.getElementById('recordNote').value.trim()};
+  const rec={id:id||genId(),date,category:cat,splitType,payer,participants,name,amount,location:document.getElementById('recordLocation').value.trim(),note:document.getElementById('recordNote').value.trim()};
   if(id){data.records[data.records.findIndex(x=>x.id===id)]=rec;showToast('已更新');}else{data.records.push(rec);showToast('已添加');}
-  saveData();closeModal('recordModal');renderRecords();renderOverview();
+  saveData();closeModal('recordModal');renderRecords();renderOverview();renderSettlement();
 }
 function deleteRecord(id){if(!confirm('确定删除？'))return;data.records=data.records.filter(x=>x.id!==id);saveData();renderRecords();renderOverview();renderSettlement();showToast('已删除');}
 function closeModal(id){document.getElementById(id).classList.remove('active');}
@@ -645,7 +693,7 @@ function renderRecords(){
   let recs=[...data.records].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
   const fc=document.getElementById('filterCategory').value,fs=document.getElementById('filterSplit').value,fp=document.getElementById('filterPayer').value,fk=document.getElementById('filterKeyword').value.toLowerCase().trim();
   if(fc)recs=recs.filter(r=>r.category===fc);if(fs)recs=recs.filter(r=>(r.splitType||'shared')===fs);
-  if(fp!=='')recs=recs.filter(r=>String(r.payerIdx)===fp&&!r.payerCustom);
+  if(fp!=='')recs=recs.filter(r=>r.payer===fp);
   if(fk)recs=recs.filter(r=>{const pn=getPayerDisplayName(r);return(r.name+''+(r.location||'')+''+(r.note||'')+''+pn).toLowerCase().includes(fk);});
   if(recs.length===0){table.style.display='none';empty.style.display='block';return;}
   table.style.display='';empty.style.display='none';
@@ -663,7 +711,7 @@ function renderOverview(){
 }
 function renderCategoryChart(bc){const ctx=document.getElementById('categoryChart').getContext('2d');const ls=[],vs=[],cs=[];Object.keys(CATEGORIES).forEach(k=>{if(bc[k]){ls.push(CATEGORIES[k].icon+' '+CATEGORIES[k].name);vs.push(bc[k]);cs.push(COLORS[k]);}});if(categoryChart)categoryChart.destroy();if(vs.length===0){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('暂无数据',ctx.canvas.width/2,ctx.canvas.height/2);return;}categoryChart=new Chart(ctx,{type:'doughnut',data:{labels:ls,datasets:[{data:vs,backgroundColor:cs,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:(c)=>{const t=vs.reduce((a,b)=>a+b,0);return`${c.label}: ${formatMoney(c.parsed,'THB')} (${(c.parsed/t*100).toFixed(1)}%)`;}}}}}});}
 function renderSplitChart(sh,pe){const ctx=document.getElementById('splitChart').getContext('2d');if(splitChart)splitChart.destroy();if(sh+pe===0){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('暂无数据',ctx.canvas.width/2,ctx.canvas.height/2);return;}splitChart=new Chart(ctx,{type:'doughnut',data:{labels:['公共花费','个人花费'],datasets:[{data:[sh,pe],backgroundColor:['#059669','#94a3b8'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11},padding:10,usePointStyle:true}},tooltip:{callbacks:{label:(c)=>{const t=sh+pe;return`${c.label}: ${formatMoney(c.parsed,'THB')} (${(c.parsed/t*100).toFixed(1)}%)`;}}}}}});}
-function renderMemberChart(){const ctx=document.getElementById('memberChart').getContext('2d');if(memberChart)memberChart.destroy();const paid=data.members.map((_,i)=>data.records.filter(r=>r.payerIdx===i&&!r.payerCustom).reduce((s,r)=>s+r.amount,0));if(paid.every(v=>v===0)){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('暂无数据',ctx.canvas.width/2,ctx.canvas.height/2);return;}memberChart=new Chart(ctx,{type:'bar',data:{labels:data.members,datasets:[{label:'实付',data:paid,backgroundColor:data.members.map((_,i)=>getMemberColor(i)),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>formatMoney(c.parsed.y,'THB')+' (≈'+formatMoney(thbToRmb(c.parsed.y),'RMB')+')'}}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}});}
+function renderMemberChart(){const ctx=document.getElementById('memberChart').getContext('2d');if(memberChart)memberChart.destroy();const payerSet=new Set();data.records.forEach(r=>payerSet.add(r.payer));const payers=Array.from(payerSet);const labels=payers.map(p=>personLabel(p));const paid=payers.map(p=>data.records.filter(r=>r.payer===p).reduce((s,r)=>s+r.amount,0));const colors=payers.map(p=>personColor(p));if(payers.length===0||paid.every(v=>v===0)){ctx.fillStyle='#94a3b8';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.fillText('暂无数据',ctx.canvas.width/2,ctx.canvas.height/2);return;}memberChart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'实付',data:paid,backgroundColor:colors,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>formatMoney(c.parsed.y,'THB')+' (≈'+formatMoney(thbToRmb(c.parsed.y),'RMB')+')'}}}},scales:{y:{beginAtZero:true,grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}});}
 
 function openPlanModal(id=null){document.getElementById('planModalTitle').textContent=id?'编辑行程':'添加行程';document.getElementById('planId').value=id||'';renderDateQuick('planDateQuick','planDate');if(id){const p=data.plans.find(x=>x.id===id);if(p){document.getElementById('planDate').value=p.date;document.getElementById('planType').value=p.type;document.getElementById('planTitle').value=p.title;document.getElementById('planLocation').value=p.location||'';document.getElementById('planNote').value=p.note||'';}}else{document.getElementById('planDate').value=TRIP_START;document.getElementById('planType').value='ticket';document.getElementById('planTitle').value='';document.getElementById('planLocation').value='';document.getElementById('planNote').value='';}document.getElementById('planModal').classList.add('active');}
 function savePlan(){const date=document.getElementById('planDate').value,title=document.getElementById('planTitle').value.trim();if(!date||!title){showToast('请填写日期和标题');return;}const id=document.getElementById('planId').value;const plan={id:id||genId(),date,type:document.getElementById('planType').value,title,location:document.getElementById('planLocation').value.trim(),note:document.getElementById('planNote').value.trim()};if(id){data.plans[data.plans.findIndex(x=>x.id===id)]=plan;showToast('已更新');}else{data.plans.push(plan);showToast('已添加');}saveData();closeModal('planModal');renderTimeline();}
@@ -680,7 +728,7 @@ function renderTimeline(){
     const plans=(pbd[date]||[]).sort((a,b)=>a.title.localeCompare(b.title)),exps=rbd[date]||[];
     const st=exps.filter(r=>(r.splitType||'shared')==='shared').reduce((s,r)=>s+r.amount,0),pt=exps.filter(r=>r.splitType==='personal').reduce((s,r)=>s+r.amount,0),dt=st+pt;
     const ph=plans.map(p=>{const cat=CATEGORIES[p.type]||CATEGORIES.other,mb=p.location?`<button class="btn-map" onclick="openMapLocation('${p.location.replace(/'/g,"\\'")}')" title="在 Google Maps 中查看">📍 定位</button>`:'';return`<div class="day-item"><div class="item-info"><span style="font-size:16px;">${cat.icon}</span><div><div>${p.title}</div><div class="item-note">${p.location?'📍 '+p.location:''}${p.note?' · '+p.note:''}</div></div></div><div style="display:flex;gap:4px;align-items:center;">${mb}<button class="btn-ghost" onclick="openPlanModal('${p.id}')">编辑</button><button class="btn-ghost danger" onclick="deletePlan('${p.id}')">删除</button></div></div>`;}).join('');
-    const eh=exps.map(r=>{const cat=CATEGORIES[r.category],s=r.splitType||'shared',sc=r.splitCount||data.members.length,pn=getPayerDisplayName(r);return`<div class="day-item"><div class="item-info"><span style="font-size:16px;">${cat.icon}</span><div><div>${r.name} <span class="split-tag ${s==='shared'?'split-shared':'split-personal'}">${s==='shared'?'公共':'个人'}</span>${s==='shared'?` <span style="font-size:11px;color:var(--s400);">${sc}人</span>`:''}</div><div class="item-note">${pn}付款${r.location?' · 📍 '+r.location:''}${r.note?' · '+r.note:''}</div></div></div><div class="item-amount">${formatMoney(r.amount,'THB')}</div></div>`;}).join('');
+    const eh=exps.map(r=>{const cat=CATEGORIES[r.category],s=r.splitType||'shared',parts=r.participants||[],sc=parts.length||data.members.length,pn=getPayerDisplayName(r);return`<div class="day-item"><div class="item-info"><span style="font-size:16px;">${cat.icon}</span><div><div>${r.name} <span class="split-tag ${s==='shared'?'split-shared':'split-personal'}">${s==='shared'?'公共':'个人'}</span>${s==='shared'?` <span style="font-size:11px;color:var(--s400);">${sc}人</span>`:''}</div><div class="item-note">${pn}付款${r.location?' · 📍 '+r.location:''}${r.note?' · '+r.note:''}</div></div></div><div class="item-amount">${formatMoney(r.amount,'THB')}</div></div>`;}).join('');
     return`<div class="timeline-day"><div class="day-header"><div class="day-date">${formatDate(date)}</div><div class="day-totals">${st>0?`<span class="shared">公共 <strong>${formatMoney(st,'THB')}</strong></span>`:''}${pt>0?`<span class="personal">个人 <strong>${formatMoney(pt,'THB')}</strong></span>`:''}<span>合计 <strong>${formatMoney(dt,'THB')}</strong></span></div></div><div class="day-items">${ph+eh||'<div style="color:var(--s400);font-size:12px;padding:6px;">暂无记录</div>'}</div></div>`;
   }).join('')+`</div>`;
   if(filteredDates.length===0&&fd){container.innerHTML+=`<div class="empty-state" style="padding:24px;"><div class="empty-icon">📭</div><div class="empty-desc">该日期暂无行程和消费记录</div></div>`;}
@@ -699,9 +747,21 @@ function renderTimelineFilters(dates,pbd,rbd){
 function filterTimelineDate(date){timelineFilterDate=timelineFilterDate===date?null:date;renderTimeline();}
 
 function renderSettlement(){renderMemberStats();renderSettlementAdvice();renderSharedRecords();}
-function renderMemberStats(){const grid=document.getElementById('memberStatGrid'),mc=data.members.length;const stats=data.members.map((name,idx)=>{const mr=data.records.filter(r=>r.payerIdx===idx&&!r.payerCustom);const paid=mr.reduce((s,r)=>s+r.amount,0),sp=mr.filter(r=>(r.splitType||'shared')==='shared').reduce((s,r)=>s+r.amount,0),pp=mr.filter(r=>r.splitType==='personal').reduce((s,r)=>s+r.amount,0);let spay=0;data.records.forEach(r=>{if(r.splitType==='personal'){if(r.payerIdx===idx&&!r.payerCustom)spay+=r.amount;}else{const sc=r.splitCount||mc;if(idx<sc)spay+=r.amount/sc;}});return{name,idx,paid,sharedPaid:sp,personalPaid:pp,shouldPay:spay,net:paid-spay};});grid.innerHTML=stats.map(s=>`<div class="member-stat-card"><div class="member-stat-header"><div class="member-avatar" style="background:${getMemberColor(s.idx)};width:28px;height:28px;">${getMemberInitial(s.name)}</div><div class="member-stat-name">${s.name}</div></div><div class="member-stat-rows"><div><span>实付总额</span><strong>${formatMoney(s.paid,'THB')}</strong></div><div><span>　公共代付</span><strong>${formatMoney(s.sharedPaid,'THB')}</strong></div><div><span>　个人花费</span><strong>${formatMoney(s.personalPaid,'THB')}</strong></div><div><span>应承担</span><strong>${formatMoney(s.shouldPay,'THB')}</strong></div><div style="border-top:1px solid var(--s100);margin-top:4px;padding-top:6px;"><span>结算净额</span><strong style="color:${s.net>=0?'var(--e600)':'var(--red-500)'};">${s.net>=0?'+':''}${formatMoney(s.net,'THB')}</strong></div></div></div>`).join('');}
-function renderSettlementAdvice(){const container=document.getElementById('settlementContainer'),mc=data.members.length;const nets=data.members.map((name,idx)=>{let paid=0,spay=0;data.records.forEach(r=>{if(r.payerIdx===idx&&!r.payerCustom)paid+=r.amount;if(r.splitType==='personal'){if(r.payerIdx===idx&&!r.payerCustom)spay+=r.amount;}else{const sc=r.splitCount||mc;if(idx<sc)spay+=r.amount/sc;}});return{name,idx,net:paid-spay};});const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);if(cr.length===0&&dr.length===0){container.innerHTML=`<div class="settlement-card" style="text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">✅</div><div style="font-weight:600;">账目平衡，无需转账</div></div>`;return;}const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({from:dr[i].name,to:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++;}container.innerHTML=trs.map(t=>`<div class="settlement-card"><div class="settlement-row"><div style="display:flex;align-items:center;gap:8px;"><span>${t.from}</span><span style="color:var(--s300);">→</span><span>${t.to}</span></div><div style="text-align:right;"><div class="settlement-amount positive">${formatMoney(t.amount,'THB')}</div><div style="font-size:11px;color:var(--s400);">≈ ${formatMoney(thbToRmb(t.amount),'RMB')}</div></div></div></div>`).join('')+`<div style="font-size:11px;color:var(--s400);margin-top:8px;line-height:1.5;">💡 公共花费按参与人数均摊。自定义付款人不参与成员结算。</div>`;}
-function renderSharedRecords(){const tbody=document.getElementById('sharedRecordsBody'),empty=document.getElementById('sharedEmpty');const sh=data.records.filter(r=>(r.splitType||'shared')==='shared').sort((a,b)=>a.date.localeCompare(b.date));if(sh.length===0){tbody.innerHTML='';empty.style.display='block';return;}empty.style.display='none';tbody.innerHTML=sh.map(r=>{const cat=CATEGORIES[r.category],sc=r.splitCount||data.members.length,pp=r.amount/sc,pn=getPayerDisplayName(r);return`<tr><td>${formatDateShort(r.date)}</td><td><span class="tag ${cat.class}">${cat.icon} ${cat.name}</span> ${r.name}</td><td><span class="member-tag">${pn}</span></td><td>${formatMoney(r.amount,'THB')}</td><td>${sc}人</td><td>${formatMoney(pp,'THB')}</td><td style="color:var(--s400);">${formatMoney(thbToRmb(pp),'RMB')}</td></tr>`;}).join('');}
+function calculateSettlement(){
+  const personSet=new Set();
+  data.records.forEach(r=>{personSet.add(r.payer);(r.participants||[]).forEach(p=>personSet.add(p));});
+  const accounts={};
+  personSet.forEach(pid=>{accounts[pid]={paid:0,shouldPay:0,sharedPaid:0,personalPaid:0};});
+  data.records.forEach(r=>{
+    if(accounts[r.payer]){accounts[r.payer].paid+=r.amount;if((r.splitType||'shared')==='shared'){accounts[r.payer].sharedPaid+=r.amount;}else{accounts[r.payer].personalPaid+=r.amount;}}
+    if(r.splitType==='personal'){if(accounts[r.payer])accounts[r.payer].shouldPay+=r.amount;}
+    else{const parts=r.participants||[];const share=parts.length>0?r.amount/parts.length:0;parts.forEach(pid=>{if(accounts[pid])accounts[pid].shouldPay+=share;});}
+  });
+  return Object.entries(accounts).map(([pid,a])=>({id:pid,name:personLabel(pid),color:personColor(pid),paid:a.paid,sharedPaid:a.sharedPaid,personalPaid:a.personalPaid,shouldPay:a.shouldPay,net:a.paid-a.shouldPay}));
+}
+function renderMemberStats(){const grid=document.getElementById('memberStatGrid');const stats=calculateSettlement();grid.innerHTML=stats.map(s=>`<div class="member-stat-card"><div class="member-stat-header"><div class="member-avatar" style="background:${s.color};width:28px;height:28px;">${getMemberInitial(s.name)}</div><div class="member-stat-name">${s.name}</div></div><div class="member-stat-rows"><div><span>实付总额</span><strong>${formatMoney(s.paid,'THB')}</strong></div><div><span>　公共代付</span><strong>${formatMoney(s.sharedPaid,'THB')}</strong></div><div><span>　个人花费</span><strong>${formatMoney(s.personalPaid,'THB')}</strong></div><div><span>应承担</span><strong>${formatMoney(s.shouldPay,'THB')}</strong></div><div style="border-top:1px solid var(--s100);margin-top:4px;padding-top:6px;"><span>结算净额</span><strong style="color:${s.net>=0?'var(--e600)':'var(--red-500)'};">${s.net>=0?'+':''}${formatMoney(s.net,'THB')}</strong></div></div></div>`).join('');}
+function renderSettlementAdvice(){const container=document.getElementById('settlementContainer');const nets=calculateSettlement();const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);if(cr.length===0&&dr.length===0){container.innerHTML=`<div class="settlement-card" style="text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">✅</div><div style="font-weight:600;">账目平衡，无需转账</div></div>`;return;}const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({from:dr[i].name,to:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++;}container.innerHTML=trs.map(t=>`<div class="settlement-card"><div class="settlement-row"><div style="display:flex;align-items:center;gap:8px;"><span>${t.from}</span><span style="color:var(--s300);">→</span><span>${t.to}</span></div><div style="text-align:right;"><div class="settlement-amount positive">${formatMoney(t.amount,'THB')}</div><div style="font-size:11px;color:var(--s400);">≈ ${formatMoney(thbToRmb(t.amount),'RMB')}</div></div></div></div>`).join('')+`<div style="font-size:11px;color:var(--s400);margin-top:8px;line-height:1.5;">💡 公共花费按参与人员均摊。所有付款人（含自定义）均参与结算。</div>`;}
+function renderSharedRecords(){const tbody=document.getElementById('sharedRecordsBody'),empty=document.getElementById('sharedEmpty');const sh=data.records.filter(r=>(r.splitType||'shared')==='shared').sort((a,b)=>a.date.localeCompare(b.date));if(sh.length===0){tbody.innerHTML='';empty.style.display='block';return;}empty.style.display='none';tbody.innerHTML=sh.map(r=>{const cat=CATEGORIES[r.category],parts=r.participants||[],sc=parts.length||data.members.length,pp=sc>0?r.amount/sc:0,pn=getPayerDisplayName(r),pNames=parts.map(p=>personLabel(p)).join('、');return`<tr><td>${formatDateShort(r.date)}</td><td><span class="tag ${cat.class}">${cat.icon} ${cat.name}</span> ${r.name}</td><td><span class="member-tag">${pn}</span></td><td>${formatMoney(r.amount,'THB')}</td><td title="${pNames}">${sc}人</td><td>${formatMoney(pp,'THB')}</td><td style="color:var(--s400);">${formatMoney(thbToRmb(pp),'RMB')}</td></tr>`;}).join('');}
 
 function renderAnalysis(){renderCategorySummary();renderDailySummary();renderTopRecords();}
 function renderCategorySummary(){const tbody=document.getElementById('categorySummaryBody'),bc={};const total=data.records.reduce((s,r)=>s+r.amount,0);data.records.forEach(r=>{if(!bc[r.category])bc[r.category]={count:0,total:0};bc[r.category].count++;bc[r.category].total+=r.amount;});if(Object.keys(bc).length===0){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--s400);">暂无数据</td></tr>`;return;}tbody.innerHTML=Object.keys(bc).map(k=>{const c=bc[k],cat=CATEGORIES[k],pct=total>0?(c.total/total*100).toFixed(1):0;return`<tr><td><span class="tag ${cat.class}">${cat.icon} ${cat.name}</span></td><td>${c.count}</td><td>${formatMoney(c.total,'THB')}</td><td style="color:var(--s400);">${formatMoney(thbToRmb(c.total),'RMB')}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:50px;height:6px;background:var(--s100);border-radius:3px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${COLORS[k]};"></div></div>${pct}%</div></td><td>${formatMoney(c.total/c.count,'THB')}</td></tr>`;}).join('');}
@@ -772,30 +832,29 @@ function clearAllData(){if(!confirm('确定清空所有数据？不可恢复！'
 
 function loadSampleData(){
   data={rate:5,members:['小明','小红','小华'],reminders:[...DEFAULT_REMINDERS],tips:[...DEFAULT_TIPS],
-    records:[
-      {id:genId(),date:'2025-08-04',category:'transport',splitType:'shared',payerIdx:0,payerCustom:null,name:'机���出租车',amount:450,splitCount:3,location:'素万那普机场',note:'到市区'},
-      {id:genId(),date:'2025-08-04',category:'stay',splitType:'shared',payerIdx:1,payerCustom:null,name:'曼谷酒店(2间)',amount:3600,splitCount:3,location:'暹罗',note:'2晚'},
-      {id:genId(),date:'2025-08-04',category:'food',splitType:'shared',payerIdx:2,payerCustom:null,name:'冬阴功汤+Pad Thai',amount:480,splitCount:3,location:'路边摊',note:'3人'},
-      {id:genId(),date:'2025-08-04',category:'ticket',splitType:'shared',payerIdx:0,payerCustom:null,name:'大皇宫门票',amount:1500,splitCount:3,location:'大皇宫',note:''},
-      {id:genId(),date:'2025-08-04',category:'food',splitType:'personal',payerIdx:1,payerCustom:null,name:'芒果糯米饭',amount:80,splitCount:1,location:'考山路',note:'自己加餐'},
-      {id:genId(),date:'2025-08-04',category:'shopping',splitType:'personal',payerIdx:2,payerCustom:null,name:'纪念T恤',amount:250,splitCount:1,location:'考山路',note:''},
-      {id:genId(),date:'2025-08-05',category:'food',splitType:'shared',payerIdx:0,payerCustom:null,name:'早餐+咖啡',amount:360,splitCount:3,location:'酒店附近',note:'3人'},
-      {id:genId(),date:'2025-08-05',category:'transport',splitType:'shared',payerIdx:1,payerCustom:null,name:'BTS一日通票',amount:420,splitCount:3,location:'曼谷',note:''},
-      {id:genId(),date:'2025-08-05',category:'shopping',splitType:'shared',payerIdx:2,payerCustom:null,name:'Big C零食',amount:1200,splitCount:3,location:'Big C',note:''},
-      {id:genId(),date:'2025-08-05',category:'food',splitType:'shared',payerIdx:0,payerCustom:'当地朋友阿泰',name:'建兴酒家咖喱蟹',amount:2400,splitCount:5,location:'素坤逸',note:'阿泰请客，5人一起吃'},
-      {id:genId(),date:'2025-08-06',category:'transport',splitType:'shared',payerIdx:0,payerCustom:null,name:'飞普吉岛',amount:6600,splitCount:3,location:'曼谷→普吉',note:'亚航'},
-      {id:genId(),date:'2025-08-06',category:'stay',splitType:'shared',payerIdx:1,payerCustom:null,name:'普吉海边酒店',amount:5000,splitCount:3,location:'芭东海滩',note:'海景房'},
-      {id:genId(),date:'2025-08-06',category:'food',splitType:'shared',payerIdx:2,payerCustom:null,name:'海鲜大餐',amount:2700,splitCount:4,location:'芭东夜市',note:'3人+1位驴友拼桌'},
-      {id:genId(),date:'2025-08-07',category:'ticket',splitType:'shared',payerIdx:1,payerCustom:null,name:'皮皮岛一日游',amount:4500,splitCount:3,location:'皮皮岛',note:'含浮潜'},
-      {id:genId(),date:'2025-08-07',category:'food',splitType:'shared',payerIdx:2,payerCustom:null,name:'午餐+椰子',amount:540,splitCount:3,location:'皮皮岛',note:''},
-      {id:genId(),date:'2025-08-07',category:'food',splitType:'shared',payerIdx:0,payerCustom:null,name:'晚餐',amount:900,splitCount:3,location:'普吉',note:''},
-      {id:genId(),date:'2025-08-07',category:'food',splitType:'personal',payerIdx:1,payerCustom:null,name:'按摩SPA',amount:600,splitCount:1,location:'普吉',note:''},
-      {id:genId(),date:'2025-08-08',category:'food',splitType:'shared',payerIdx:1,payerCustom:null,name:'早餐',amount:360,splitCount:3,location:'酒店',note:''},
-      {id:genId(),date:'2025-08-08',category:'shopping',splitType:'shared',payerIdx:2,payerCustom:null,name:'伴手礼',amount:1500,splitCount:3,location:'江西冷',note:''},
-      {id:genId(),date:'2025-08-08',category:'food',splitType:'shared',payerIdx:0,payerCustom:null,name:'欢送晚餐',amount:3000,splitCount:6,location:'海边餐厅',note:'3人+3位驴友一起'},
-      {id:genId(),date:'2025-08-09',category:'transport',splitType:'shared',payerIdx:0,payerCustom:null,name:'机场大巴',amount:360,splitCount:3,location:'普吉机场',note:''},
-      {id:genId(),date:'2025-08-09',category:'food',splitType:'shared',payerIdx:1,payerCustom:null,name:'机场简餐',amount:540,splitCount:3,location:'普吉机场',note:''},
-      {id:genId(),date:'2025-08-09',category:'transport',splitType:'shared',payerIdx:2,payerCustom:null,name:'回国机票',amount:9000,splitCount:3,location:'普吉→国内',note:''}
+    records:[{id:genId(),date:'2025-08-04',category:'transport',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'机场出租车',amount:450,location:'素万那普机场',note:'到市区'},
+      {id:genId(),date:'2025-08-04',category:'stay',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'曼谷酒店(2间)',amount:3600,location:'暹罗',note:'2晚'},
+      {id:genId(),date:'2025-08-04',category:'food',splitType:'shared',payer:'m2',participants:['m0','m1','m2'],name:'冬阴功汤+Pad Thai',amount:480,location:'路边摊',note:'3人'},
+      {id:genId(),date:'2025-08-04',category:'ticket',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'大皇宫门票',amount:1500,location:'大皇宫',note:''},
+      {id:genId(),date:'2025-08-04',category:'food',splitType:'personal',payer:'m1',participants:['m1'],name:'芒果糯米饭',amount:80,location:'考山路',note:'自己加餐'},
+      {id:genId(),date:'2025-08-04',category:'shopping',splitType:'personal',payer:'m2',participants:['m2'],name:'纪念T恤',amount:250,location:'考山路',note:''},
+      {id:genId(),date:'2025-08-05',category:'food',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'早餐+咖啡',amount:360,location:'酒店附近',note:'3人'},
+      {id:genId(),date:'2025-08-05',category:'transport',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'BTS一日通票',amount:420,location:'曼谷',note:''},
+      {id:genId(),date:'2025-08-05',category:'shopping',splitType:'shared',payer:'m2',participants:['m0','m1','m2'],name:'Big C零食',amount:1200,location:'Big C',note:''},
+      {id:genId(),date:'2025-08-05',category:'food',splitType:'shared',payer:'c:阿泰',participants:['m0','m1','m2','c:阿泰','c:朋友B'],name:'建兴酒家咖喱蟹',amount:2400,location:'素坤逸',note:'阿泰请客，5人一起吃'},
+      {id:genId(),date:'2025-08-06',category:'transport',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'飞普吉岛',amount:6600,location:'曼谷→普吉',note:'亚航'},
+      {id:genId(),date:'2025-08-06',category:'stay',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'普吉海边酒店',amount:5000,location:'芭东海滩',note:'海景房'},
+      {id:genId(),date:'2025-08-06',category:'food',splitType:'shared',payer:'m2',participants:['m0','m1','m2','c:驴友'],name:'海鲜大餐',amount:2700,location:'芭东夜市',note:'3人+1位驴友拼桌'},
+      {id:genId(),date:'2025-08-07',category:'ticket',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'皮皮岛一日游',amount:4500,location:'皮皮岛',note:'含浮潜'},
+      {id:genId(),date:'2025-08-07',category:'food',splitType:'shared',payer:'m2',participants:['m0','m1','m2'],name:'午餐+椰子',amount:540,location:'皮皮岛',note:''},
+      {id:genId(),date:'2025-08-07',category:'food',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'晚餐',amount:900,location:'普吉',note:''},
+      {id:genId(),date:'2025-08-07',category:'food',splitType:'personal',payer:'m1',participants:['m1'],name:'按摩SPA',amount:600,location:'普吉',note:''},
+      {id:genId(),date:'2025-08-08',category:'food',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'早餐',amount:360,location:'酒店',note:''},
+      {id:genId(),date:'2025-08-08',category:'shopping',splitType:'shared',payer:'m2',participants:['m0','m1','m2'],name:'伴手礼',amount:1500,location:'江西冷',note:''},
+      {id:genId(),date:'2025-08-08',category:'food',splitType:'shared',payer:'m0',participants:['m0','m1','m2','c:驴友A','c:驴友B','c:驴友C'],name:'欢送晚餐',amount:3000,location:'海边餐厅',note:'3人+3位驴友一起'},
+      {id:genId(),date:'2025-08-09',category:'transport',splitType:'shared',payer:'m0',participants:['m0','m1','m2'],name:'机场大巴',amount:360,location:'普吉机场',note:''},
+      {id:genId(),date:'2025-08-09',category:'food',splitType:'shared',payer:'m1',participants:['m0','m1','m2'],name:'机场简餐',amount:540,location:'普吉机场',note:''},
+      {id:genId(),date:'2025-08-09',category:'transport',splitType:'shared',payer:'m2',participants:['m0','m1','m2'],name:'回国机票',amount:9000,location:'普吉→国内',note:''}
     ],
     plans:[
       {id:genId(),date:'2025-08-04',type:'transport',title:'抵达曼谷',location:'Suvarnabhumi Airport',note:'打车去酒店'},
