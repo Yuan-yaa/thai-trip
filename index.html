@@ -286,6 +286,16 @@ function plabel(id){if(!id)return'?';if(id.startsWith('m')){const i=parseInt(id.
 function pcolor(id){if(id&&id.startsWith('m'))return MEMBER_COLORS[parseInt(id.slice(1))%MEMBER_COLORS.length];return'#64748b'}
 function pinitial(id){const n=plabel(id);return n?n.charAt(0):'?'}
 function ppAmount(r){if(r.splitType==='personal')return r.amount;const c=(r.participants||[]).length;return c>0?r.amount/c:r.amount/data.members.length}
+function getAllPersons(){
+  const list=data.members.map((n,i)=>({id:'m'+i,name:n}));
+  const customIds=new Set();
+  data.records.forEach(r=>{
+    if(r.payer.startsWith('c:')&&!list.find(p=>p.id===r.payer))customIds.add(r.payer);
+    (r.participants||[]).forEach(p=>{if(p.startsWith('c:')&&!list.find(x=>x.id===p))customIds.add(p)});
+  });
+  customIds.forEach(id=>list.push({id,name:plabel(id)}));
+  return list;
+}
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
 
@@ -328,22 +338,20 @@ function renderOverview(){
   const rs=data.records,total=rs.reduce((s,r)=>s+r.amount,0);
   const sh=rs.filter(r=>(r.splitType||'shared')==='shared').reduce((s,r)=>s+r.amount,0);
   const meId='m0';
-  // A的实际花费 = A付款 + A在公共消费中应付的份额 + A个人消费
-  let aPaid=0,aShare=0,aPersonal=0;
+  // A的实际花费 = A应付份额(个人消费 + 公共消费中A的份额)
+  let aShare=0,aPersonal=0;
   rs.forEach(r=>{
-    if(r.payer===meId)aPaid+=r.amount;
     if(r.splitType==='personal'&&r.payer===meId)aPersonal+=r.amount;
     if((r.splitType||'shared')==='shared'&&(r.participants||[]).includes(meId)){
       aShare+=r.amount/(r.participants.length||1);
     }
   });
-  const aTotal=aPaid+aShare-aPersonal; // aPaid已包含aPersonal,所以aShare单独; 更简单的:aPaid+aShare (因为aPersonal是aPaid的子集)
-  const aActual = aPaid + aShare; // A所有实际支出
+  const aActual=aPersonal+aShare;
   document.getElementById('statsGrid').innerHTML=`
-    <div class="sbox"><div class="sl">💰 总花费</div><div class="sv">${fmt(total,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(total),'RMB')}</div></div>
-    <div class="sbox"><div class="sl">🤝 公共花费</div><div class="sv" style="color:var(--p)">${fmt(sh,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(sh),'RMB')}</div></div>
-    <div class="sbox"><div class="sl">👤 A的实际花费</div><div class="sv" style="color:var(--tl)">${fmt(aActual,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(aActual),'RMB')}</div></div>
-    <div class="sbox"><div class="sl">👥 A的人均负担</div><div class="sv">${fmt(aShare,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(aShare),'RMB')}</div></div>`;
+    <div class="sbox"><div class="sl">💰 总花费</div><div class="sv">${fmt(total,'THB')} ≈ ${fmt(thb2rmb(total),'RMB')}</div><div class="ss">全部人员合计</div></div>
+    <div class="sbox"><div class="sl">🤝 公共花费</div><div class="sv" style="color:var(--p)">${fmt(sh,'THB')} ≈ ${fmt(thb2rmb(sh),'RMB')}</div><div class="ss">按参与人数分摊</div></div>
+    <div class="sbox"><div class="sl">👤 A的实际花费</div><div class="sv" style="color:var(--tl)">${fmt(aActual,'THB')} ≈ ${fmt(thb2rmb(aActual),'RMB')}</div><div class="ss">A应付份额</div></div>
+    <div class="sbox"><div class="sl">👥 A的公共份额</div><div class="sv">${fmt(aShare,'THB')} ≈ ${fmt(thb2rmb(aShare),'RMB')}</div><div class="ss">A在公共费用中的部分</div></div>`;
   renderOverviewChecklist();
   updateTopBar();
 }
@@ -388,8 +396,8 @@ function renderRecords(){
         <div class="li-m">${fmtDateShort(r.date)} · ${pn}付款${s==='shared'?' · '+(r.participants||[]).length+'人':''}${r.location?' · '+r.location:''}</div>
       </div>
       <div class="li-r">
-        <div class="li-a">${fmt(r.amount,'THB')}</div>
-        <div class="li-s">≈ ${fmt(thb2rmb(r.amount),'RMB')} · 人均 ${fmt(pp,'THB')} ≈ ${fmt(thb2rmb(pp),'RMB')}</div>
+        <div class="li-a">${fmt(r.amount,'THB')} ≈ ${fmt(thb2rmb(r.amount),'RMB')}</div>
+        <div class="li-s">人均 ${fmt(pp,'THB')} ≈ ${fmt(thb2rmb(pp),'RMB')}</div>
       </div></div>`;
   }).join('');
 }
@@ -397,8 +405,7 @@ function refreshPersonFilter(){
   const sel=document.getElementById('fPerson');
   const cur=sel.value;
   let opts='<option value="">全部人员</option>';
-  data.members.forEach((n,i)=>opts+=`<option value="m${i}">${n}</option>`);
-  data.records.forEach(r=>{if(r.payer.startsWith('c:')&&r.payer!==''){opts+=`<option value="${r.payer}">${plabel(r.payer)}</option>`}});
+  getAllPersons().forEach(p=>{opts+=`<option value="${p.id}">${p.name}</option>`});
   sel.innerHTML=opts; sel.value=cur;
 }
 
@@ -440,7 +447,7 @@ function openRecordModal(){
 function closeRecModal(){document.getElementById('recModal').classList.remove('active')}
 function refreshPayerOpts(){
   const sel=document.getElementById('recPayer');
-  sel.innerHTML=data.members.map((n,i)=>`<option value="m${i}">${n}</option>`).join('')+'<option value="custom">✏️ 自定义…</option>';
+  sel.innerHTML=getAllPersons().map(p=>`<option value="${p.id}">${p.name}</option>`).join('')+'<option value="custom">✏️ 自定义…</option>';
 }
 function onPayerChange(){
   const v=document.getElementById('recPayer').value;
@@ -453,11 +460,12 @@ function onSplitChange(){
 }
 function renderParticipantChks(){
   const group=document.getElementById('participantChks');
-  let html=data.members.map((n,i)=>{
-    const pid='m'+i;const checked=editParts.includes(pid);
-    return`<div class="chk-tag${checked?' checked':''}" onclick="togglePart('${pid}')"><span class="chk-dot" style="background:${MEMBER_COLORS[i%MEMBER_COLORS.length]}"></span>${n}</div>`;
+  const persons=getAllPersons();
+  group.innerHTML=persons.map(p=>{
+    const checked=editParts.includes(p.id);
+    let bg=pcolor(p.id);if(p.id.startsWith('c:'))bg='#64748b';
+    return`<div class="chk-tag${checked?' checked':''}" onclick="togglePart('${p.id}')"><span class="chk-dot" style="background:${bg}"></span>${p.name}</div>`;
   }).join('');
-  group.innerHTML=html;
 }
 function togglePart(pid){
   const i=editParts.indexOf(pid);
@@ -500,12 +508,39 @@ function calcSettlement(){
 }
 function renderSettlement(){
   const meId='m0';const nets=calcSettlement();const me=nets.find(n=>n.id===meId);
-  // summary
+  const others=nets.filter(n=>n.id!==meId);
+  // 别人欠我 = 其他人应付给A的部分 (基于每笔消费A的份额)
+  let owedToMe=0,iOwe=0;
+  // 精确计算：遍历每笔消费，看A是收款人还是付款人
+  data.records.forEach(r=>{
+    if((r.splitType||'shared')==='shared'){
+      const parts=r.participants||[],sc=parts.length||1;
+      if(parts.includes(meId)){
+        const myShare=r.amount/sc;
+        if(r.payer===meId){
+          // A付款，其他人总共欠A (amount - myShare)
+          owedToMe+=r.amount-myShare;
+        }else{
+          // 别人付款，A欠付款人 myShare
+          iOwe+=myShare;
+        }
+      }else if(r.payer===meId){
+        // A付款但A不参与？理论上不应发生，但计入别人欠A
+        owedToMe+=r.amount;
+      }
+    }
+    if(r.splitType==='personal'){
+      if(r.payer===meId)owedToMe+=r.amount;
+      else if((r.participants||[]).includes(meId))iOwe+=r.amount;
+    }
+  });
+  // 净额 = 别人欠我 - 我欠别人
+  const net=owedToMe-iOwe;
   const sm=document.getElementById('settleSummary');
-  if(!me||Math.abs(me.net)<0.01){sm.innerHTML=`<div class="sum sum-balance"><div class="sum-l">✅ 账目已平衡</div><div class="sum-v">฿0.00</div><div class="sum-s">无需转账</div></div>`}
+  if(Math.abs(net)<0.01){sm.innerHTML=`<div class="sum sum-balance"><div class="sum-l">✅ 账目已平衡</div><div class="sum-v">฿0.00</div><div class="sum-s">无需转账</div></div>`}
   else{
-    const abs=Math.abs(me.net),isRec=me.net>0;
-    sm.innerHTML=`<div class="sum ${isRec?'sum-receive':'sum-pay'}"><div class="sum-l">${isRec?'💰 我总计应收':'💸 我总计应付'}</div><div class="sum-v">${fmt(abs,'THB')}</div><div class="sum-s">≈ ${fmt(thb2rmb(abs),'RMB')}</div></div>`;
+    const abs=Math.abs(net),isRec=net>0;
+    sm.innerHTML=`<div class="sum ${isRec?'sum-receive':'sum-pay'}"><div class="sum-l">${isRec?'💰 我总计应收':'💸 我总计应付'}</div><div class="sum-v">${fmt(abs,'THB')}</div><div class="sum-s">≈ ${fmt(thb2rmb(abs),'RMB')}</div><div style="font-size:11px;opacity:.8;margin-top:4px">别人欠我 ${fmt(owedToMe,'THB')} - 我欠别人 ${fmt(iOwe,'THB')}</div></div>`;
   }
   // expense detail (A only)
   const myRecs=data.records.filter(r=>r.payer===meId||(r.participants||[]).includes(meId)).sort((a,b)=>a.date.localeCompare(b.date));
@@ -522,52 +557,91 @@ function renderSettlement(){
         <div class="li-s">≈ ${isPayer?'+':'-'}${fmt(thb2rmb(myAmt),'RMB')}</div></div></div>`;
     }).join('');
   }
-  // transfers (A perspective) - 生成全部转账后再过滤涉及A的，并以A优先匹配
+  // 转账明细：拆分为 别人欠我 / 我欠别人
   const tf=document.getElementById('settleTransfers');
-  if(!me||Math.abs(me.net)<0.01){tf.innerHTML='<div class="empty"><div class="ett">✅ 账目已平，无需转账</div></div>';return}
-  const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);
-  // 优先把A作为债权人/债务人处理
-  const aCred=cr.find(n=>n.id===meId), aDebt=dr.find(n=>n.id===meId);
-  // 生成全部转账
-  const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;
-  while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({from:dr[i].id,fromN:dr[i].name,to:cr[j].id,toN:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++}
-  // 过滤涉及A的转账，如果没有（算法没把A匹配上），手动拆分A应参与的部分
-  let myTrs=trs.filter(t=>t.from===meId||t.to===meId);
-  // 重新以A为中心计算：A应收/应付的人分别是谁
-  if(myTrs.length===0){
-    // A是债权人：所有债务人按比例转给A
-    if(me.net>0){
-      const totalDebt=dr.reduce((s,n)=>s+(-n.net),0);
-      dr.forEach(d=>{const amt=Math.min(-d.net,me.net*(-d.net)/totalDebt);if(amt>0.01)myTrs.push({from:d.id,fromN:d.name,to:meId,toN:'我',amount:amt})});
+  if(Math.abs(net)<0.01){tf.innerHTML='<div class="empty"><div class="ett">✅ 账目已平，无需转账</div></div>';return}
+  // 计算每个人欠A / A欠每个人
+  const owe={}; // owe[personId] = 正数表示欠A，负数表示A欠他
+  data.records.forEach(r=>{
+    if((r.splitType||'shared')==='shared'){
+      const parts=r.participants||[],sc=parts.length||1;
+      const myShare=parts.includes(meId)?r.amount/sc:0;
+      if(r.payer===meId){
+        // A付款，其他参与者每人欠A amount/sc
+        parts.forEach(pid=>{if(pid!==meId){owe[pid]=(owe[pid]||0)+r.amount/sc}});
+      }else if(parts.includes(meId)){
+        // 别人付款，A欠付款人 myShare
+        owe[r.payer]=(owe[r.payer]||0)-myShare;
+      }
     }
-    // A是债务人：按比例转给所有债权人
-    else{
-      const totalCred=cr.reduce((s,n)=>s+n.net,0);
-      cr.forEach(c=>{const amt=Math.min(c.net,-me.net*(c.net)/totalCred);if(amt>0.01)myTrs.push({from:meId,fromN:'我',to:c.id,toN:c.name,amount:amt})});
+    if(r.splitType==='personal'){
+      if(r.payer===meId&&(r.participants||[]).includes(meId)){
+        // A个人消费，不影响他人
+      }else if(r.payer===meId){
+        (r.participants||[]).forEach(pid=>{if(pid!==meId)owe[pid]=(owe[pid]||0)+r.amount});
+      }else if((r.participants||[]).includes(meId)){
+        owe[r.payer]=(owe[r.payer]||0)-r.amount;
+      }
     }
-  }
-  if(myTrs.length===0){tf.innerHTML='<div class="empty"><div class="ett">暂无转账</div></div>';return}
-  let totalShould=0,totalActual=0,html='';
-  myTrs.forEach(t=>{
-    const isRec=t.to===meId;const sRecs=data.settlements.filter(s=>s.fromId===t.from&&s.toId===t.to);
-    const actual=sRecs.reduce((s,r)=>s+r.amount,0);const remain=t.amount-actual;
-    const settled=remain<0.01;totalShould+=t.amount;totalActual+=Math.min(actual,t.amount);
-    html+=`<div class="tcard${settled?' settled':''}" data-tfrom="${t.from}" data-tto="${t.to}">
-      <div class="thd"><div class="tdir"><span class="tarr">${isRec?'⬇️':'⬆️'}</span><span class="twho">${isRec?'收自 '+t.fromN:'付给 '+t.toN}</span></div>
-      <div class="tshould"><div class="tsl">应转</div><div class="tsa">${fmt(t.amount,'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(t.amount),'RMB')}</div></div></div>
-      <div class="trow"><span>实际转账</span><b style="color:var(--p)">${fmt(actual,'THB')} ≈ ${fmt(thb2rmb(actual),'RMB')}</b></div>
-      <div class="trow"><span>剩余待转</span><b style="color:${remain>0.01?'var(--r)':'var(--p)'}">${fmt(Math.max(0,remain),'THB')} ≈ ${fmt(thb2rmb(Math.max(0,remain)),'RMB')}</b></div>
-      <div class="pbar"><div class="pbar-inner" style="width:${t.amount>0?(actual/t.amount*100):0}%;background:${settled?'var(--p)':'var(--a)'}"></div></div>
-      <div class="tbtns">
-        ${!settled?`<button class="btn btn-p btn-sm" data-action="settle" data-from="${t.from}" data-to="${t.to}" data-rem="${Math.max(0,remain)}" data-full="${t.amount}">✓ 标记结清</button>`:''}
-        ${actual>0?`<button class="btn btn-s btn-sm" data-action="undo" data-from="${t.from}" data-to="${t.to}">↩ 撤销</button>`:''}
-      </div></div>`;
   });
-  tf.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:8px">
-    <div style="flex:1;background:var(--bg);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--tl)">应转账</div><div style="font-weight:700;font-size:14px">${fmt(totalShould,'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(totalShould),'RMB')}</div></div>
-    <div style="flex:1;background:#ecfdf5;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--p)">已转账</div><div style="font-weight:700;font-size:14px;color:var(--p)">${fmt(totalActual,'THB')}</div><div style="font-size:10px;color:var(--p)">≈ ${fmt(thb2rmb(totalActual),'RMB')}</div></div>
-    <div style="flex:1;background:${totalShould-totalActual>0.01?'#fef2f2':'#ecfdf5'};border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--tl)">剩余</div><div style="font-weight:700;font-size:14px;color:${totalShould-totalActual>0.01?'var(--r)':'var(--p)'}">${fmt(Math.max(0,totalShould-totalActual),'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(Math.max(0,totalShould-totalActual)),'RMB')}</div></div>
-  </div>`+html;
+  const owedByOthers=[], owedByMe=[];
+  Object.entries(owe).forEach(([pid,amt])=>{
+    if(amt>0.01)owedByOthers.push({id:pid,name:plabel(pid),amount:amt});
+    else if(amt<-0.01)owedByMe.push({id:pid,name:plabel(pid),amount:-amt});
+  });
+  // 已结算抵扣
+  (data.settlements||[]).forEach(s=>{
+    if(s.fromId===meId&&owe[s.toId]!==undefined){owe[s.toId]=(owe[s.toId]||0)+s.amount}
+    if(s.toId===meId&&owe[s.fromId]!==undefined){owe[s.fromId]=(owe[s.fromId]||0)-s.amount}
+  });
+  // 重新计算剩余
+  const owedByOthersFinal=[], owedByMeFinal=[];
+  Object.entries(owe).forEach(([pid,amt])=>{
+    if(amt>0.01)owedByOthersFinal.push({id:pid,name:plabel(pid),amount:amt});
+    else if(amt<-0.01)owedByMeFinal.push({id:pid,name:plabel(pid),amount:-amt});
+  });
+  let html='';
+  // 汇总
+  const totalOwedToMe=owedByOthersFinal.reduce((s,x)=>s+x.amount,0);
+  const totalIOwe=owedByMeFinal.reduce((s,x)=>s+x.amount,0);
+  html+=`<div style="display:flex;gap:8px;margin-bottom:8px">
+    <div style="flex:1;background:#ecfdf5;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--p)">别人欠我</div><div style="font-weight:700;font-size:14px;color:var(--p)">${fmt(totalOwedToMe,'THB')}</div><div style="font-size:10px;color:var(--p)">≈ ${fmt(thb2rmb(totalOwedToMe),'RMB')}</div></div>
+    <div style="flex:1;background:#fef2f2;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--r)">我欠别人</div><div style="font-weight:700;font-size:14px;color:var(--r)">${fmt(totalIOwe,'THB')}</div><div style="font-size:10px;color:var(--r)">≈ ${fmt(thb2rmb(totalIOwe),'RMB')}</div></div>
+  </div>`;
+  // 别人欠我列表
+  if(owedByOthersFinal.length>0){
+    html+='<div style="font-size:13px;font-weight:700;margin:10px 0 6px;color:var(--p)">⬇️ 别人欠我</div>';
+    owedByOthersFinal.forEach(p=>{
+      const sRecs=data.settlements.filter(s=>s.fromId===p.id&&s.toId===meId);
+      const actual=sRecs.reduce((s,r)=>s+r.amount,0);
+      const remain=p.amount-actual;const settled=remain<0.01;
+      html+=renderTransferCard(p.id,p.name,meId,'我',p.amount,actual,remain,settled,false);
+    });
+  }
+  // 我欠别人列表
+  if(owedByMeFinal.length>0){
+    html+='<div style="font-size:13px;font-weight:700;margin:10px 0 6px;color:var(--r)">⬆️ 我欠别人</div>';
+    owedByMeFinal.forEach(p=>{
+      const sRecs=data.settlements.filter(s=>s.fromId===meId&&s.toId===p.id);
+      const actual=sRecs.reduce((s,r)=>s+r.amount,0);
+      const remain=p.amount-actual;const settled=remain<0.01;
+      html+=renderTransferCard(meId,'我',p.id,p.name,p.amount,actual,remain,settled,true);
+    });
+  }
+  tf.innerHTML=html||'<div class="empty"><div class="ett">暂无转账</div></div>';
+}
+function renderTransferCard(fromId,fromName,toId,toName,amount,actual,remain,settled,isMePaying){
+  const isRec=!isMePaying;
+  return `<div class="tcard${settled?' settled':''}" data-tfrom="${fromId}" data-tto="${toId}">
+    <div class="thd"><div class="tdir"><span class="tarr">${isRec?'⬇️':'⬆️'}</span><span class="twho">${isRec?fromName+' 欠我':'付给 '+toName}</span></div>
+    <div class="tshould"><div class="tsl">应转</div><div class="tsa">${fmt(amount,'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(amount),'RMB')}</div></div></div>
+    <div class="trow"><span>实际转账</span><b style="color:var(--p)">${fmt(actual,'THB')} ≈ ${fmt(thb2rmb(actual),'RMB')}</b></div>
+    <div class="trow"><span>剩余待转</span><b style="color:${remain>0.01?'var(--r)':'var(--p)'}">${fmt(Math.max(0,remain),'THB')} ≈ ${fmt(thb2rmb(Math.max(0,remain)),'RMB')}</b></div>
+    <div class="pbar"><div class="pbar-inner" style="width:${amount>0?(actual/amount*100):0}%;background:${settled?'var(--p)':'var(--a)'}"></div></div>
+    <div class="tbtns">
+      ${!settled?`<button class="btn btn-p btn-sm" data-action="settle" data-from="${fromId}" data-to="${toId}" data-rem="${Math.max(0,remain)}" data-full="${amount}">✓ 标记结清</button>`:''}
+      ${actual>0?`<button class="btn btn-s btn-sm" data-action="undo" data-from="${fromId}" data-to="${toId}">↩ 撤销</button>`:''}
+    </div></div>`;
 }
 document.getElementById('settleTransfers').addEventListener('click',function(e){
   const btn=e.target.closest('[data-action]');if(!btn)return;
