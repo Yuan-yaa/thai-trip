@@ -182,10 +182,10 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
       <option value="ticket">🎫 门票</option><option value="shopping">🛍 购物</option><option value="other">📦 其他</option>
     </select>
     <select id="fSplit" onchange="renderRecords()" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px">
-      <option value="">全部类型</option><option value="shared">🤝 公共</option><option value="personal">👤 个人</option>
+      <option value="">付款类型</option><option value="shared">🤝 公共</option><option value="personal">👤 个人</option>
     </select>
     <select id="fPerson" onchange="renderRecords()" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px">
-      <option value="">全部人员</option>
+      <option value="">付款人</option>
     </select>
     <button class="btn btn-p btn-sm" onclick="openRecordModal()" style="margin-left:auto">＋ 添加</button>
   </div>
@@ -384,7 +384,7 @@ function renderRecords(){
   let rs=[...data.records].sort((a,b)=>b.date.localeCompare(a.date)||b.id?.localeCompare(a.id));
   const fc=document.getElementById('fCat').value,fs=document.getElementById('fSplit').value,fp=document.getElementById('fPerson').value;
   if(fc)rs=rs.filter(r=>r.category===fc);if(fs)rs=rs.filter(r=>(r.splitType||'shared')===fs);
-  if(fp)rs=rs.filter(r=>r.payer===fp||(r.participants||[]).includes(fp));
+  if(fp)rs=rs.filter(r=>r.payer===fp);
   const list=document.getElementById('recordsList'),empty=document.getElementById('recEmpty');
   if(rs.length===0){list.innerHTML='';empty.style.display='block';return}
   empty.style.display='none';
@@ -404,7 +404,7 @@ function renderRecords(){
 function refreshPersonFilter(){
   const sel=document.getElementById('fPerson');
   const cur=sel.value;
-  let opts='<option value="">全部人员</option>';
+  let opts='<option value="">付款人</option>';
   getAllPersons().forEach(p=>{opts+=`<option value="${p.id}">${p.name}</option>`});
   sel.innerHTML=opts; sel.value=cur;
 }
@@ -535,12 +535,21 @@ function renderSettlement(){
     }
   });
   // 净额 = 别人欠我 - 我欠别人
-  const net=owedToMe-iOwe;
+  const netRaw=owedToMe-iOwe;
+  // 扣减已结算金额：结算后应收/应付应随之减少
+  let settledToMe=0, settledByMe=0;
+  (data.settlements||[]).forEach(s=>{
+    if(s.toId===meId)settledToMe+=s.amount;      // 别人转给A => 抵消"别人欠我"
+    else if(s.fromId===meId)settledByMe+=s.amount; // A转给别人 => 抵消"我欠别人"
+  });
+  const owedToMeRemain=Math.max(0,owedToMe-settledToMe);
+  const iOweRemain=Math.max(0,iOwe-settledByMe);
+  const net=owedToMeRemain-iOweRemain;
   const sm=document.getElementById('settleSummary');
-  if(Math.abs(net)<0.01){sm.innerHTML=`<div class="sum sum-balance"><div class="sum-l">✅ 账目已平衡</div><div class="sum-v">฿0.00</div><div class="sum-s">无需转账</div></div>`}
+  if(Math.abs(net)<0.01){sm.innerHTML=`<div class="sum sum-balance"><div class="sum-l">✅ 账目已结清</div><div class="sum-v">฿0.00</div><div class="sum-s">所有欠款已结清</div></div>`}
   else{
     const abs=Math.abs(net),isRec=net>0;
-    sm.innerHTML=`<div class="sum ${isRec?'sum-receive':'sum-pay'}"><div class="sum-l">${isRec?'💰 我总计应收':'💸 我总计应付'}</div><div class="sum-v">${fmt(abs,'THB')}</div><div class="sum-s">≈ ${fmt(thb2rmb(abs),'RMB')}</div><div style="font-size:11px;opacity:.8;margin-top:4px">别人欠我 ${fmt(owedToMe,'THB')} - 我欠别人 ${fmt(iOwe,'THB')}</div></div>`;
+    sm.innerHTML=`<div class="sum ${isRec?'sum-receive':'sum-pay'}"><div class="sum-l">${isRec?'💰 我总计应收':'💸 我总计应付'}</div><div class="sum-v">${fmt(abs,'THB')} ≈ ${fmt(thb2rmb(abs),'RMB')}</div><div style="font-size:11px;opacity:.8;margin-top:4px">别人欠我 ${fmt(owedToMeRemain,'THB')} - 我欠别人 ${fmt(iOweRemain,'THB')}</div></div>`;
   }
   // expense detail (A only)
   const myRecs=data.records.filter(r=>r.payer===meId||(r.participants||[]).includes(meId)).sort((a,b)=>a.date.localeCompare(b.date));
@@ -628,6 +637,29 @@ function renderSettlement(){
       html+=renderTransferCard(meId,'我',p.id,p.name,p.amount,actual,remain,settled,true);
     });
   }
+  // 历史结清记录
+  const hist=(data.settlements||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(hist.length>0){
+    html+=`<div style="font-size:13px;font-weight:700;margin:14px 0 6px;color:var(--tl)">📜 历史结清记录</div>`;
+    html+=`<div style="border:1px solid var(--bd);border-radius:10px;overflow:hidden">`;
+    hist.forEach((s,idx)=>{
+      const fromName=plabel(s.fromId),toName=plabel(s.toId);
+      const isMeFrom=s.fromId===meId,isMeTo=s.toId===meId;
+      const dateStr=s.date||'未记录';
+      html+=`<div style="display:flex;align-items:center;gap:8px;padding:9px 11px;${idx<hist.length-1?'border-bottom:1px solid var(--bd);':''}background:#f9fafb">
+        <span style="font-size:14px">${isMeTo?'⬇️':(isMeFrom?'⬆️':'🔁')}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600">${fromName} → ${toName}</div>
+          <div style="font-size:10px;color:var(--tl)">📅 ${dateStr}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:13px;font-weight:700;color:${isMeTo?'var(--p)':'var(--r)'}">${isMeTo?'+':'-'}${fmt(s.amount,'THB')}</div>
+          <div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(s.amount),'RMB')}</div>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
   tf.innerHTML=html||'<div class="empty"><div class="ett">暂无转账</div></div>';
 }
 function renderTransferCard(fromId,fromName,toId,toName,amount,actual,remain,settled,isMePaying){
@@ -655,7 +687,9 @@ document.getElementById('settleTransfers').addEventListener('click',function(e){
 });
 function markSettled(from,to,amount,fullAmount){
   if(!data.settlements)data.settlements=[];
-  data.settlements.push({fromId:from,toId:to,amount:fullAmount||amount,date:new Date().toISOString().slice(0,10)});
+  // amount=剩余待转金额，fullAmount=应转总额。本次结清金额为剩余部分amount
+  const settleAmount=amount>0?amount:fullAmount;
+  data.settlements.push({fromId:from,toId:to,amount:settleAmount,date:new Date().toISOString().slice(0,10)});
   saveData();renderSettlement();toast('已标记结清');
 }
 function undoSettled(from,to){
