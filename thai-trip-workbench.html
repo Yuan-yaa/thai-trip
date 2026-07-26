@@ -166,6 +166,11 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
     <button class="btn btn-p btn-b" onclick="openRecordModal()">＋ 添加消费</button>
     <button class="btn btn-s btn-b" onclick="switchTab('records')">📋 查看明细</button>
   </div>
+  <!-- 出行备忘录 -->
+  <div class="card" style="margin-top:12px"><div class="card-tt">📝 出行备忘录<span class="hint">可编辑删除</span></div>
+    <div id="overviewChecklist"></div>
+    <div style="display:flex;gap:6px;margin-top:8px"><input type="text" id="newCheckItem" placeholder="添加备忘事项" style="flex:1;padding:8px;border:1.5px solid var(--bd);border-radius:8px;font-size:13px" onkeydown="if(event.key==='Enter')addCheckItem()"><button class="btn btn-p btn-sm" onclick="addCheckItem()">添加</button></div>
+  </div>
 </div>
 
 <!-- ==================== TAB 2: 记录 ==================== -->
@@ -178,6 +183,9 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
     </select>
     <select id="fSplit" onchange="renderRecords()" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px">
       <option value="">全部类型</option><option value="shared">🤝 公共</option><option value="personal">👤 个人</option>
+    </select>
+    <select id="fPerson" onchange="renderRecords()" style="padding:6px 10px;border:1.5px solid var(--bd);border-radius:8px;font-size:12px">
+      <option value="">全部人员</option>
     </select>
     <button class="btn btn-p btn-sm" onclick="openRecordModal()" style="margin-left:auto">＋ 添加</button>
   </div>
@@ -194,8 +202,6 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 
 <!-- ==================== TAB 4: 我的 ==================== -->
 <div class="tab-content" id="tab-me">
-  <!-- 备忘录 -->
-  <div class="card"><div class="card-tt">📝 出行备忘录</div><div id="checklist"></div></div>
   <!-- 紧急情况 -->
   <div class="card"><div class="card-tt">🆘 紧急情况处理</div>
     <div class="em-card danger"><div class="em-tt">🚔 报警 / 急救</div><div class="em-desc">报警 ☎ 191　急救 ☎ 1669　旅游警察 ☎ 1155（有中文服务）</div></div>
@@ -306,9 +312,9 @@ function resetAll(){if(confirm('确定清空所有数据？此操作不可恢复
 function switchTab(name){
   document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+name));
-  if(name==='overview')renderOverview();if(name==='records')renderRecords();if(name==='settlement')renderSettlement();if(name==='me')renderMe();
+  if(name==='overview')renderOverview();if(name==='records'){refreshPersonFilter();renderRecords();}if(name==='settlement')renderSettlement();if(name==='me')renderMe();
 }
-function renderAll(){renderOverview();renderRecords();renderSettlement();renderMe();updateTopBar()}
+function renderAll(){renderOverview();refreshPersonFilter();renderRecords();renderSettlement();renderMe();updateTopBar()}
 
 // ============ TOP BAR ============
 function updateTopBar(){
@@ -321,21 +327,56 @@ function updateTopBar(){
 function renderOverview(){
   const rs=data.records,total=rs.reduce((s,r)=>s+r.amount,0);
   const sh=rs.filter(r=>(r.splitType||'shared')==='shared').reduce((s,r)=>s+r.amount,0);
-  const pe=rs.filter(r=>r.splitType==='personal').reduce((s,r)=>s+r.amount,0);
-  const mc=data.members.length;
+  const meId='m0';
+  // A的实际花费 = A付款 + A在公共消费中应付的份额 + A个人消费
+  let aPaid=0,aShare=0,aPersonal=0;
+  rs.forEach(r=>{
+    if(r.payer===meId)aPaid+=r.amount;
+    if(r.splitType==='personal'&&r.payer===meId)aPersonal+=r.amount;
+    if((r.splitType||'shared')==='shared'&&(r.participants||[]).includes(meId)){
+      aShare+=r.amount/(r.participants.length||1);
+    }
+  });
+  const aTotal=aPaid+aShare-aPersonal; // aPaid已包含aPersonal,所以aShare单独; 更简单的:aPaid+aShare (因为aPersonal是aPaid的子集)
+  const aActual = aPaid + aShare; // A所有实际支出
   document.getElementById('statsGrid').innerHTML=`
     <div class="sbox"><div class="sl">💰 总花费</div><div class="sv">${fmt(total,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(total),'RMB')}</div></div>
     <div class="sbox"><div class="sl">🤝 公共花费</div><div class="sv" style="color:var(--p)">${fmt(sh,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(sh),'RMB')}</div></div>
-    <div class="sbox"><div class="sl">👤 个人花费</div><div class="sv" style="color:var(--tl)">${fmt(pe,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(pe),'RMB')}</div></div>
-    <div class="sbox"><div class="sl">👥 A的人均负担</div><div class="sv">${fmt(total/mc,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(total/mc),'RMB')}</div></div>`;
+    <div class="sbox"><div class="sl">👤 A的实际花费</div><div class="sv" style="color:var(--tl)">${fmt(aActual,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(aActual),'RMB')}</div></div>
+    <div class="sbox"><div class="sl">👥 A的人均负担</div><div class="sv">${fmt(aShare,'THB')}</div><div class="ss">≈ ${fmt(thb2rmb(aShare),'RMB')}</div></div>`;
+  renderOverviewChecklist();
   updateTopBar();
 }
+function renderOverviewChecklist(){
+  document.getElementById('overviewChecklist').innerHTML=data.checklist.map((c,i)=>`
+    <div class="chk-item" style="padding-right:0">
+      <div onclick="toggleChk(${i})" style="display:flex;align-items:center;gap:8px;flex:1">
+        <div class="chk-box${c.done?' done':''}">${c.done?'✓':''}</div>
+        <span class="chk-text${c.done?' done':''}"${c.editing?' style="display:none"':''}>${c.t}</span>
+      </div>
+      <input type="text" value="${c.t}" onchange="saveCheckEdit(${i},this.value)" onblur="cancelCheckEdit(${i})" style="${c.editing?'':'display:none'};flex:1;padding:5px 8px;border:1.5px solid var(--p);border-radius:6px;font-size:13px">
+      <div style="display:flex;gap:4px;margin-left:auto">
+        <button class="btn btn-s btn-sm" onclick="startCheckEdit(${i})">✏️</button>
+        <button class="btn btn-d btn-sm" onclick="deleteCheckItem(${i})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+function addCheckItem(){
+  const v=document.getElementById('newCheckItem').value.trim();if(!v){toast('请输入内容');return}
+  data.checklist.push({id:genId(),t:v,done:false});document.getElementById('newCheckItem').value='';saveData();renderOverviewChecklist();toast('已添加')
+}
+function toggleChk(i){data.checklist[i].done=!data.checklist[i].done;saveData();renderOverviewChecklist();}
+function startCheckEdit(i){data.checklist.forEach(c=>c.editing=false);data.checklist[i].editing=true;saveData();renderOverviewChecklist();setTimeout(()=>{const inputs=document.querySelectorAll('#overviewChecklist input');if(inputs[i])inputs[i].focus()},50)}
+function saveCheckEdit(i,v){data.checklist[i].t=v.trim()||data.checklist[i].t;data.checklist[i].editing=false;saveData();renderOverviewChecklist();}
+function cancelCheckEdit(i){data.checklist[i].editing=false;renderOverviewChecklist();}
+function deleteCheckItem(i){if(confirm('删除这条备忘？')){data.checklist.splice(i,1);saveData();renderOverviewChecklist();toast('已删除')}}
 
 // ============ TAB 2: RECORDS ============
 function renderRecords(){
   let rs=[...data.records].sort((a,b)=>b.date.localeCompare(a.date)||b.id?.localeCompare(a.id));
-  const fc=document.getElementById('fCat').value,fs=document.getElementById('fSplit').value;
+  const fc=document.getElementById('fCat').value,fs=document.getElementById('fSplit').value,fp=document.getElementById('fPerson').value;
   if(fc)rs=rs.filter(r=>r.category===fc);if(fs)rs=rs.filter(r=>(r.splitType||'shared')===fs);
+  if(fp)rs=rs.filter(r=>r.payer===fp||(r.participants||[]).includes(fp));
   const list=document.getElementById('recordsList'),empty=document.getElementById('recEmpty');
   if(rs.length===0){list.innerHTML='';empty.style.display='block';return}
   empty.style.display='none';
@@ -348,9 +389,17 @@ function renderRecords(){
       </div>
       <div class="li-r">
         <div class="li-a">${fmt(r.amount,'THB')}</div>
-        <div class="li-s">≈ ${fmt(thb2rmb(r.amount),'RMB')} · 人均 ${fmt(pp,'THB')}</div>
+        <div class="li-s">≈ ${fmt(thb2rmb(r.amount),'RMB')} · 人均 ${fmt(pp,'THB')} ≈ ${fmt(thb2rmb(pp),'RMB')}</div>
       </div></div>`;
   }).join('');
+}
+function refreshPersonFilter(){
+  const sel=document.getElementById('fPerson');
+  const cur=sel.value;
+  let opts='<option value="">全部人员</option>';
+  data.members.forEach((n,i)=>opts+=`<option value="m${i}">${n}</option>`);
+  data.records.forEach(r=>{if(r.payer.startsWith('c:')&&r.payer!==''){opts+=`<option value="${r.payer}">${plabel(r.payer)}</option>`}});
+  sel.innerHTML=opts; sel.value=cur;
 }
 
 function editRecord(id){
@@ -473,36 +522,63 @@ function renderSettlement(){
         <div class="li-s">≈ ${isPayer?'+':'-'}${fmt(thb2rmb(myAmt),'RMB')}</div></div></div>`;
     }).join('');
   }
-  // transfers (A perspective)
+  // transfers (A perspective) - 生成全部转账后再过滤涉及A的，并以A优先匹配
   const tf=document.getElementById('settleTransfers');
   if(!me||Math.abs(me.net)<0.01){tf.innerHTML='<div class="empty"><div class="ett">✅ 账目已平，无需转账</div></div>';return}
   const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);
+  // 优先把A作为债权人/债务人处理
+  const aCred=cr.find(n=>n.id===meId), aDebt=dr.find(n=>n.id===meId);
+  // 生成全部转账
   const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;
   while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({from:dr[i].id,fromN:dr[i].name,to:cr[j].id,toN:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++}
-  const myTrs=trs.filter(t=>t.from===meId||t.to===meId);
+  // 过滤涉及A的转账，如果没有（算法没把A匹配上），手动拆分A应参与的部分
+  let myTrs=trs.filter(t=>t.from===meId||t.to===meId);
+  // 重新以A为中心计算：A应收/应付的人分别是谁
+  if(myTrs.length===0){
+    // A是债权人：所有债务人按比例转给A
+    if(me.net>0){
+      const totalDebt=dr.reduce((s,n)=>s+(-n.net),0);
+      dr.forEach(d=>{const amt=Math.min(-d.net,me.net*(-d.net)/totalDebt);if(amt>0.01)myTrs.push({from:d.id,fromN:d.name,to:meId,toN:'我',amount:amt})});
+    }
+    // A是债务人：按比例转给所有债权人
+    else{
+      const totalCred=cr.reduce((s,n)=>s+n.net,0);
+      cr.forEach(c=>{const amt=Math.min(c.net,-me.net*(c.net)/totalCred);if(amt>0.01)myTrs.push({from:meId,fromN:'我',to:c.id,toN:c.name,amount:amt})});
+    }
+  }
   if(myTrs.length===0){tf.innerHTML='<div class="empty"><div class="ett">暂无转账</div></div>';return}
   let totalShould=0,totalActual=0,html='';
   myTrs.forEach(t=>{
-    const isRec=t.to===meId;const sRecs=data.settlements.filter(s=>s.from===t.from&&s.to===t.to);
+    const isRec=t.to===meId;const sRecs=data.settlements.filter(s=>s.fromId===t.from&&s.toId===t.to);
     const actual=sRecs.reduce((s,r)=>s+r.amount,0);const remain=t.amount-actual;
     const settled=remain<0.01;totalShould+=t.amount;totalActual+=Math.min(actual,t.amount);
-    html+=`<div class="tcard${settled?' settled':''}">
+    html+=`<div class="tcard${settled?' settled':''}" data-tfrom="${t.from}" data-tto="${t.to}">
       <div class="thd"><div class="tdir"><span class="tarr">${isRec?'⬇️':'⬆️'}</span><span class="twho">${isRec?'收自 '+t.fromN:'付给 '+t.toN}</span></div>
       <div class="tshould"><div class="tsl">应转</div><div class="tsa">${fmt(t.amount,'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(t.amount),'RMB')}</div></div></div>
       <div class="trow"><span>实际转账</span><b style="color:var(--p)">${fmt(actual,'THB')} ≈ ${fmt(thb2rmb(actual),'RMB')}</b></div>
       <div class="trow"><span>剩余待转</span><b style="color:${remain>0.01?'var(--r)':'var(--p)'}">${fmt(Math.max(0,remain),'THB')} ≈ ${fmt(thb2rmb(Math.max(0,remain)),'RMB')}</b></div>
       <div class="pbar"><div class="pbar-inner" style="width:${t.amount>0?(actual/t.amount*100):0}%;background:${settled?'var(--p)':'var(--a)'}"></div></div>
       <div class="tbtns">
-        ${!settled?`<button class="btn btn-p btn-sm" onclick="markSettled('${t.from}','${t.to}',${Math.max(0,remain)},${t.amount})">✓ 标记结清</button>`:''}
-        ${actual>0?`<button class="btn btn-s btn-sm" onclick="undoSettled('${t.from}','${t.to}')">↩ 撤销</button>`:''}
+        ${!settled?`<button class="btn btn-p btn-sm" data-action="settle" data-from="${t.from}" data-to="${t.to}" data-rem="${Math.max(0,remain)}" data-full="${t.amount}">✓ 标记结清</button>`:''}
+        ${actual>0?`<button class="btn btn-s btn-sm" data-action="undo" data-from="${t.from}" data-to="${t.to}">↩ 撤销</button>`:''}
       </div></div>`;
   });
-  const tr=tf.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:8px">
+  tf.innerHTML=`<div style="display:flex;gap:8px;margin-bottom:8px">
     <div style="flex:1;background:var(--bg);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--tl)">应转账</div><div style="font-weight:700;font-size:14px">${fmt(totalShould,'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(totalShould),'RMB')}</div></div>
     <div style="flex:1;background:#ecfdf5;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--p)">已转账</div><div style="font-weight:700;font-size:14px;color:var(--p)">${fmt(totalActual,'THB')}</div><div style="font-size:10px;color:var(--p)">≈ ${fmt(thb2rmb(totalActual),'RMB')}</div></div>
     <div style="flex:1;background:${totalShould-totalActual>0.01?'#fef2f2':'#ecfdf5'};border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--tl)">剩余</div><div style="font-weight:700;font-size:14px;color:${totalShould-totalActual>0.01?'var(--r)':'var(--p)'}">${fmt(Math.max(0,totalShould-totalActual),'THB')}</div><div style="font-size:10px;color:var(--tl)">≈ ${fmt(thb2rmb(Math.max(0,totalShould-totalActual)),'RMB')}</div></div>
   </div>`+html;
 }
+document.getElementById('settleTransfers').addEventListener('click',function(e){
+  const btn=e.target.closest('[data-action]');if(!btn)return;
+  const from=btn.dataset.from,to=btn.dataset.to;
+  if(btn.dataset.action==='settle'){
+    const rem=parseFloat(btn.dataset.rem),full=parseFloat(btn.dataset.full);
+    markSettled(from,to,rem,full);
+  }else if(btn.dataset.action==='undo'){
+    undoSettled(from,to);
+  }
+});
 function markSettled(from,to,amount,fullAmount){
   if(!data.settlements)data.settlements=[];
   data.settlements.push({fromId:from,toId:to,amount:fullAmount||amount,date:new Date().toISOString().slice(0,10)});
@@ -516,13 +592,9 @@ function undoSettled(from,to){
 
 // ============ TAB 4: ME ============
 function renderMe(){
-  renderChecklist();renderMembers();
+  renderMembers();
   document.getElementById('setRate').value=data.rate;
 }
-function renderChecklist(){
-  document.getElementById('checklist').innerHTML=data.checklist.map((c,i)=>`<div class="chk-item" onclick="toggleChk(${i})"><div class="chk-box${c.done?' done':''}">${c.done?'✓':''}</div><span class="chk-text${c.done?' done':''}">${c.t}</span></div>`).join('');
-}
-function toggleChk(i){data.checklist[i].done=!data.checklist[i].done;saveData();renderChecklist();toast(data.checklist[i].done?'已完成':'已撤销')}
 function renderMembers(){
   document.getElementById('memberList').innerHTML=data.members.map((n,i)=>`<div class="member-row"><div class="member-avatar" style="background:${MEMBER_COLORS[i%MEMBER_COLORS.length]}">${n.charAt(0)}</div><input value="${n}" onchange="updateMember(${i},this.value)">${i<3?'<span style="font-size:10px;color:var(--tl)">核心</span>':''}</div>`).join('');
 }
