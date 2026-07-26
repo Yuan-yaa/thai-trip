@@ -311,6 +311,55 @@
   .settlement-amount.positive { color: var(--e600); }
   .settlement-amount.negative { color: var(--red-500); }
   .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; }
+
+  /* 结算汇总卡片 */
+  .summary-card { border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 16px; text-align: center; }
+  .summary-receive { background: linear-gradient(135deg, var(--e600), var(--t500)); color: white; }
+  .summary-pay { background: linear-gradient(135deg, #ef4444, #f59e0b); color: white; }
+  .summary-label { font-size: 14px; opacity: 0.9; margin-bottom: 6px; }
+  .summary-amount { font-size: 32px; font-weight: 700; letter-spacing: -1px; }
+  .summary-sub { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+
+  /* 支出明细列表 */
+  .expense-list { display: flex; flex-direction: column; gap: 8px; }
+  .expense-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: var(--s50); border-radius: var(--radius-sm); }
+  .expense-item-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .expense-icon { font-size: 18px; }
+  .expense-name { font-size: 14px; font-weight: 500; color: var(--s800); }
+  .expense-meta { font-size: 11px; color: var(--s400); margin-top: 2px; }
+  .expense-item-right { text-align: right; }
+  .expense-type { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-bottom: 2px; display: inline-block; }
+  .expense-paid { background: var(--g100); color: var(--g700); }
+  .expense-join { background: var(--blue-50); color: var(--blue-500); }
+  .expense-amount { font-size: 14px; font-weight: 600; }
+  .expense-amount.positive { color: var(--e600); }
+  .expense-amount.negative { color: var(--red-500); }
+  .expense-rmb { font-size: 10px; color: var(--s400); }
+
+  /* 转账卡片 */
+  .transfer-card { background: var(--white); border: 1px solid var(--s100); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .transfer-card.settled { background: var(--g50); border-color: var(--g200); }
+  .transfer-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .transfer-direction { display: flex; align-items: center; gap: 8px; }
+  .transfer-arrow { font-size: 20px; }
+  .transfer-person { font-size: 14px; color: var(--s700); }
+  .transfer-status { font-size: 11px; color: var(--s400); margin-top: 2px; }
+  .transfer-should { text-align: right; }
+  .transfer-label { font-size: 11px; color: var(--s400); }
+  .transfer-amount { font-size: 18px; font-weight: 700; color: var(--s800); }
+  .transfer-progress { background: var(--s50); border-radius: var(--radius-sm); padding: 8px 10px; margin: 8px 0; }
+  .progress-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--s500); padding: 2px 0; }
+  .progress-bar-wrap { height: 4px; background: var(--s100); border-radius: 2px; overflow: hidden; margin: 8px 0; }
+  .progress-bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .transfer-btn { width: 100%; margin-top: 6px; }
+  .btn-ghost { background: transparent; border: 1px solid var(--s200); color: var(--s500); }
+  .btn-ghost:hover { background: var(--s50); }
+
+  /* 转账汇总 */
+  .transfer-summary { display: flex; gap: 8px; margin-bottom: 12px; }
+  .ts-item { flex: 1; background: var(--s50); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+  .ts-item span { display: block; font-size: 11px; color: var(--s400); margin-bottom: 4px; }
+  .ts-item strong { font-size: 14px; }
   .member-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
   .member-stat-card { background: var(--white); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm); border: 1px solid var(--s100); }
   .member-stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--s50); }
@@ -408,10 +457,10 @@
 
   <!-- 结算 -->
   <div id="tab-settlement" class="tab-content">
-    <div class="page-hero"><h2>🤝 成员结算</h2><p>谁花了多少，谁该给谁转账，一目了然</p></div>
-    <div class="card" style="background:var(--g50); border-color:var(--g100);"><div class="card-title">成员支出明细</div><div class="member-stat-grid" id="memberStatGrid"></div></div>
-    <div class="card"><div class="card-title">结算建议 <span class="card-hint">公共花费按参与人数均摊</span></div><div id="settlementContainer"></div></div>
-    <div class="card"><div class="card-title">公共花费明细</div><div class="table-wrapper"><table><thead><tr><th>日期</th><th>项目</th><th>付款人</th><th>总金额</th><th>人数</th><th>人均</th><th>≈RMB</th></tr></thead><tbody id="sharedRecordsBody"></tbody></table></div><div id="sharedEmpty" class="empty-state" style="display:none;"><div class="empty-icon">🤝</div><div class="empty-title">暂无公共花费</div></div></div>
+    <div class="page-hero"><h2>🤝 我的结算</h2><p>应收应付、转账结清，一目了然</p></div>
+    <div id="settlementSummary"></div>
+    <div class="card"><div class="card-title">📊 我的支出明细 <span class="card-hint">只显示与A相关的费用</span></div><div id="myExpenseDetail"></div></div>
+    <div class="card"><div class="card-title">💸 转账明细 <span class="card-hint">应转/实转/剩余</span></div><div id="settlementContainer"></div></div>
   </div>
 
   <!-- 统计 -->
@@ -748,7 +797,123 @@ function renderTimelineFilters(dates,pbd,rbd){
 }
 function filterTimelineDate(date){timelineFilterDate=timelineFilterDate===date?null:date;renderTimeline();}
 
-function renderSettlement(){renderMemberStats();renderSettlementAdvice();renderSharedRecords();}
+function renderSettlement(){renderSettlementSummary();renderMyExpenseDetail();renderSettlementAdvice();}
+function renderSettlementSummary(){
+  const container=document.getElementById('settlementSummary');
+  const meId='m0',meName=personLabel(meId);
+  const nets=calculateSettlement();
+  const me=nets.find(n=>n.id===meId);
+  if(!me){container.innerHTML='';return;}
+  const absNet=Math.abs(me.net);
+  const isReceive=me.net>0;
+  container.innerHTML=`<div class="summary-card ${isReceive?'summary-receive':'summary-pay'}">
+    <div class="summary-label">${isReceive?'💰 我总计应收':'💸 我总计应付'}</div>
+    <div class="summary-amount">${formatMoney(absNet,'THB')}</div>
+    <div class="summary-sub">≈ ${formatMoney(thbToRmb(absNet),'RMB')}</div>
+  </div>`;
+}
+function renderMyExpenseDetail(){
+  const container=document.getElementById('myExpenseDetail');
+  const meId='m0',meName=personLabel(meId);
+  const myRecords=data.records.filter(r=>r.payer===meId||(r.participants||[]).includes(meId)).sort((a,b)=>a.date.localeCompare(b.date));
+  if(myRecords.length===0){container.innerHTML='<div style="text-align:center;padding:20px;color:var(--s400);font-size:13px;">暂无相关费用</div>';return;}
+  let html='<div class="expense-list">';
+  myRecords.forEach(r=>{
+    const cat=CATEGORIES[r.category],parts=r.participants||[],sc=parts.length||1;
+    const isPayer=r.payer===meId;
+    const myShare=sc>0?r.amount/sc:0;
+    const myAmount=isPayer?r.amount:myShare;
+    const typeText=isPayer?(r.splitType==='personal'?'个人花费':'我付款'):'我参与';
+    const typeClass=isPayer?'expense-paid':'expense-join';
+    html+=`<div class="expense-item">
+      <div class="expense-item-left">
+        <span class="expense-icon">${cat.icon}</span>
+        <div>
+          <div class="expense-name">${r.name}</div>
+          <div class="expense-meta">${formatDateShort(r.date)} · ${getPayerDisplayName(r)}付款 · ${sc}人</div>
+        </div>
+      </div>
+      <div class="expense-item-right">
+        <div class="expense-type ${typeClass}">${typeText}</div>
+        <div class="expense-amount ${isPayer?'positive':'negative'}">${isPayer?'+':'-'}${formatMoney(myAmount,'THB')}</div>
+        <div class="expense-rmb">≈${formatMoney(thbToRmb(myAmount),'RMB')}</div>
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  container.innerHTML=html;
+}
+function renderSettlementAdvice(){
+  const container=document.getElementById('settlementContainer');
+  const meId='m0',meName=personLabel(meId);
+  const nets=calculateSettlement();
+  const me=nets.find(n=>n.id===meId);
+  if(!me||Math.abs(me.net)<0.01){
+    container.innerHTML=`<div style="text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">✅</div><div style="font-weight:600;color:var(--s600);">账目已平衡，无需转账</div></div>`;
+    return;
+  }
+  const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);
+  const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;
+  while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({fromId:dr[i].id,from:dr[i].name,toId:cr[j].id,to:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++;}
+  const myTransfers=trs.filter(t=>t.fromId===meId||t.toId===meId);
+  if(myTransfers.length===0){
+    container.innerHTML=`<div style="text-align:center;padding:20px;color:var(--s400);font-size:13px;">暂无转账记录</div>`;
+    return;
+  }
+  let html='';
+  let totalShould=0,totalActual=0;
+  myTransfers.forEach(t=>{
+    const isReceive=t.toId===meId;
+    const settledRecords=data.settlements.filter(s=>s.fromId===t.fromId&&s.toId===t.toId);
+    const actual=settledRecords.reduce((s,r)=>s+r.amount,0);
+    const remaining=t.amount-actual;
+    const isFullySettled=remaining<0.01;
+    totalShould+=t.amount;totalActual+=Math.min(actual,t.amount);
+    html+=`<div class="transfer-card${isFullySettled?' settled':''}">
+      <div class="transfer-header">
+        <div class="transfer-direction">
+          <span class="transfer-arrow ${isReceive?'in':'out'}">${isReceive?'⬇️':'⬆️'}</span>
+          <div>
+            <div class="transfer-person">${isReceive?'收自':'付给'} <strong>${isReceive?t.from:t.to}</strong></div>
+            <div class="transfer-status">${isFullySettled?'✅ 已结清':'⏳ 待结清'}</div>
+          </div>
+        </div>
+        <div class="transfer-should">
+          <div class="transfer-label">应转</div>
+          <div class="transfer-amount">${formatMoney(t.amount,'THB')}</div>
+        </div>
+      </div>
+      <div class="transfer-progress">
+        <div class="progress-row"><span>实际转账</span><strong style="color:var(--e600);">${formatMoney(actual,'THB')}</strong></div>
+        <div class="progress-row"><span>剩余待转</span><strong style="color:${remaining>0.01?'var(--red-500)':'var(--e600)'};">${formatMoney(remaining>0?remaining:0,'THB')}</strong></div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar" style="width:${t.amount>0?(actual/t.amount*100):0}%;background:${isFullySettled?'var(--e600)':'var(--amber-500)'};"></div></div>
+      ${!isFullySettled?`<button class="btn btn-sm btn-primary transfer-btn" onclick="markSettled('${t.fromId}','${t.toId}',${remaining<0?0:remaining},${t.amount})">✓ 标记全部结清</button>`:''}
+      ${actual>0?`<button class="btn btn-sm btn-ghost transfer-btn" onclick="undoSettled('${t.fromId}','${t.toId}')">↩ 撤销结清</button>`:''}
+    </div>`;
+  });
+  const totalRemaining=totalShould-totalActual;
+  html=`<div class="transfer-summary">
+    <div class="ts-item"><span>应转账合计</span><strong>${formatMoney(totalShould,'THB')}</strong></div>
+    <div class="ts-item"><span>已转账</span><strong style="color:var(--e600);">${formatMoney(totalActual,'THB')}</strong></div>
+    <div class="ts-item"><span>剩余待转</span><strong style="color:${totalRemaining>0.01?'var(--red-500)':'var(--e600)'};">${formatMoney(totalRemaining>0?totalRemaining:0,'THB')}</strong></div>
+  </div>`+html;
+  container.innerHTML=html;
+}
+function markSettled(fromId,toId,amount,fullAmount){
+  if(!data.settlements)data.settlements=[];
+  data.settlements.push({fromId,toId,amount:fullAmount||amount,date:new Date().toISOString().slice(0,10)});
+  saveData();renderSettlement();showToast('已标记结清');
+}
+function undoSettled(fromId,toId){
+  if(!data.settlements||data.settlements.length===0)return;
+  for(let i=data.settlements.length-1;i>=0;i--){
+    if(data.settlements[i].fromId===fromId&&data.settlements[i].toId===toId){
+      data.settlements.splice(i,1);break;
+    }
+  }
+  saveData();renderSettlement();showToast('已撤销结清');
+}
 function calculateSettlement(){
   const personSet=new Set();
   data.records.forEach(r=>{personSet.add(r.payer);(r.participants||[]).forEach(p=>personSet.add(p));});
@@ -761,60 +926,6 @@ function calculateSettlement(){
   });
   return Object.entries(accounts).map(([pid,a])=>({id:pid,name:personLabel(pid),color:personColor(pid),paid:a.paid,sharedPaid:a.sharedPaid,personalPaid:a.personalPaid,shouldPay:a.shouldPay,net:a.paid-a.shouldPay}));
 }
-function renderMemberStats(){const grid=document.getElementById('memberStatGrid');const stats=calculateSettlement();grid.innerHTML=stats.map(s=>`<div class="member-stat-card"><div class="member-stat-header"><div class="member-avatar" style="background:${s.color};width:28px;height:28px;">${getMemberInitial(s.name)}</div><div class="member-stat-name">${s.name}</div></div><div class="member-stat-rows"><div><span>实付总额</span><strong>${formatMoney(s.paid,'THB')}</strong></div><div><span>　公共代付</span><strong>${formatMoney(s.sharedPaid,'THB')}</strong></div><div><span>　个人花费</span><strong>${formatMoney(s.personalPaid,'THB')}</strong></div><div><span>应承担</span><strong>${formatMoney(s.shouldPay,'THB')}</strong></div><div style="border-top:1px solid var(--s100);margin-top:4px;padding-top:6px;"><span>结算净额</span><strong style="color:${s.net>=0?'var(--e600)':'var(--red-500)'};">${s.net>=0?'+':''}${formatMoney(s.net,'THB')}</strong></div></div></div>`).join('');}
-function renderSettlementAdvice(){
-  const container=document.getElementById('settlementContainer');
-  const meId='m0';
-  const meName=personLabel(meId);
-  const nets=calculateSettlement();
-  const me=nets.find(n=>n.id===meId);
-  if(!me||Math.abs(me.net)<0.01){
-    container.innerHTML=`<div class="settlement-card" style="text-align:center;padding:24px;"><div style="font-size:32px;margin-bottom:8px;">✅</div><div style="font-weight:600;">${meName}的账目已平衡</div></div>`;
-    return;
-  }
-  let html='';
-  if(me.net>0){
-    html+=`<div class="settlement-card" style="background:var(--g50);border-color:var(--g200);"><div style="font-size:14px;color:var(--g700);margin-bottom:8px;">💰 ${meName}总计应收</div><div style="font-size:24px;font-weight:700;color:var(--e600);">${formatMoney(me.net,'THB')}</div><div style="font-size:12px;color:var(--s400);">≈ ${formatMoney(thbToRmb(me.net),'RMB')}</div></div>`;
-  }else{
-    html+=`<div class="settlement-card" style="background:var(--red-50);border-color:#fecaca;"><div style="font-size:14px;color:#b91c1c;margin-bottom:8px;">💸 ${meName}总计应付</div><div style="font-size:24px;font-weight:700;color:var(--red-500);">${formatMoney(-me.net,'THB')}</div><div style="font-size:12px;color:var(--s400);">≈ ${formatMoney(thbToRmb(-me.net),'RMB')}</div></div>`;
-  }
-  const cr=nets.filter(n=>n.net>0.01).sort((a,b)=>b.net-a.net),dr=nets.filter(n=>n.net<-0.01).sort((a,b)=>a.net-b.net);
-  const cb=cr.map(c=>c.net),db=dr.map(d=>-d.net);const trs=[];let i=0,j=0;
-  while(i<dr.length&&j<cr.length){const amt=Math.min(db[i],cb[j]);if(amt>0.01)trs.push({fromId:dr[i].id,from:dr[i].name,toId:cr[j].id,to:cr[j].name,amount:amt});db[i]-=amt;cb[j]-=amt;if(db[i]<0.01)i++;if(cb[j]<0.01)j++;}
-  const myTransfers=trs.filter(t=>t.fromId===meId||t.toId===meId);
-  if(myTransfers.length>0){
-    html+='<div style="margin-top:12px;"><div style="font-size:13px;font-weight:600;color:var(--s700);margin-bottom:8px;">📋 转账明细</div>';
-    myTransfers.forEach((t,idx)=>{
-      const settled=data.settlements.some(s=>s.fromId===t.fromId&&s.toId===t.toId&&Math.abs(s.amount-t.amount)<0.01);
-      const isReceive=t.toId===meId;
-      html+=`<div class="settlement-card${settled?' settled':''}" style="${settled?'opacity:0.6;':''}">
-        <div class="settlement-row">
-          <div style="display:flex;align-items:center;gap:8px;flex:1;">
-            <span style="font-size:18px;">${isReceive?'⬇️':'⬆️'}</span>
-            <div>
-              <div style="font-weight:600;">${isReceive?'收自':'付给'} <strong>${isReceive?t.from:t.to}</strong></div>
-              <div style="font-size:11px;color:var(--s400);">${isReceive?'对方转账给你':'你转账给对方'}</div>
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div class="settlement-amount ${isReceive?'positive':'negative'}">${formatMoney(t.amount,'THB')}</div>
-            <div style="font-size:11px;color:var(--s400);">≈ ${formatMoney(thbToRmb(t.amount),'RMB')}</div>
-          </div>
-        </div>
-        ${settled?'<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--s100);font-size:12px;color:var(--e600);">✅ 已结清</div>':`<button class="btn btn-sm btn-primary" style="margin-top:8px;width:100%;" onclick="markSettled('${t.fromId}','${t.toId}',${t.amount})">✓ 标记已结清</button>`}
-      </div>`;
-    });
-    html+='</div>';
-  }
-  html+=`<div style="font-size:11px;color:var(--s400);margin-top:12px;line-height:1.5;">💡 公共花费按参与人员均摊。只显示与${meName}相关的转账。</div>`;
-  container.innerHTML=html;
-}
-function markSettled(fromId,toId,amount){
-  if(!data.settlements)data.settlements=[];
-  data.settlements.push({fromId,toId,amount,date:new Date().toISOString().slice(0,10)});
-  saveData();renderSettlement();showToast('已标记结清');
-}
-function renderSharedRecords(){const tbody=document.getElementById('sharedRecordsBody'),empty=document.getElementById('sharedEmpty');const sh=data.records.filter(r=>(r.splitType||'shared')==='shared').sort((a,b)=>a.date.localeCompare(b.date));if(sh.length===0){tbody.innerHTML='';empty.style.display='block';return;}empty.style.display='none';tbody.innerHTML=sh.map(r=>{const cat=CATEGORIES[r.category],parts=r.participants||[],sc=parts.length||data.members.length,pp=sc>0?r.amount/sc:0,pn=getPayerDisplayName(r),pNames=parts.map(p=>personLabel(p)).join('、');return`<tr><td>${formatDateShort(r.date)}</td><td><span class="tag ${cat.class}">${cat.icon} ${cat.name}</span> ${r.name}</td><td><span class="member-tag">${pn}</span></td><td>${formatMoney(r.amount,'THB')}</td><td title="${pNames}">${sc}人</td><td>${formatMoney(pp,'THB')}</td><td style="color:var(--s400);">${formatMoney(thbToRmb(pp),'RMB')}</td></tr>`;}).join('');}
 
 function renderAnalysis(){renderCategorySummary();renderDailySummary();renderTopRecords();}
 function renderCategorySummary(){const tbody=document.getElementById('categorySummaryBody'),bc={};const total=data.records.reduce((s,r)=>s+r.amount,0);data.records.forEach(r=>{if(!bc[r.category])bc[r.category]={count:0,total:0};bc[r.category].count++;bc[r.category].total+=r.amount;});if(Object.keys(bc).length===0){tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:var(--s400);">暂无数据</td></tr>`;return;}tbody.innerHTML=Object.keys(bc).map(k=>{const c=bc[k],cat=CATEGORIES[k],pct=total>0?(c.total/total*100).toFixed(1):0;return`<tr><td><span class="tag ${cat.class}">${cat.icon} ${cat.name}</span></td><td>${c.count}</td><td>${formatMoney(c.total,'THB')}</td><td style="color:var(--s400);">${formatMoney(thbToRmb(c.total),'RMB')}</td><td><div style="display:flex;align-items:center;gap:6px;"><div style="width:50px;height:6px;background:var(--s100);border-radius:3px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:${COLORS[k]};"></div></div>${pct}%</div></td><td>${formatMoney(c.total/c.count,'THB')}</td></tr>`;}).join('');}
