@@ -636,6 +636,7 @@ function migrateRecord(r){
     for(let i=0;i<Math.min(sc,data.members.length);i++){r.participants.push('m'+i);}
   }
   delete r.payerIdx; delete r.payerCustom; delete r.splitCount;
+  if(!r.splitType) r.splitType='shared';
   return r;
 }
 function loadData(){const s=localStorage.getItem(STORAGE_KEY);if(s){try{const p=JSON.parse(s);data={records:(p.records||[]).map(migrateRecord),plans:p.plans||[],members:(p.members&&p.members.length>=DEFAULT_MEMBER_COUNT)?p.members:['成员A','成员B','成员C'],rate:p.rate||5,reminders:p.reminders||[...DEFAULT_REMINDERS],tips:p.tips||[...DEFAULT_TIPS],settlements:p.settlements||[]};}catch(e){}}}
